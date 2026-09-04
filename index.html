@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模擬考成績追蹤</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Score Record Dashboard</p>
+        <h1>模擬考成績追蹤站</h1>
+        <p class="hero-copy">
+          用純前端紀錄每次模擬考成績、設定下次考試倒數、查看統計數據與成長曲線。
+        </p>
+      </div>
+      <button id="load-demo-btn" class="secondary-btn" type="button">載入示範資料</button>
+    </header>
+
+    <div id="status-message" class="status-message" hidden></div>
+
+    <main class="dashboard">
+      <section class="panel form-panel">
+        <div class="panel-heading">
+          <h2>新增模擬考紀錄</h2>
+          <p>資料會自動儲存在瀏覽器，不需要後端。</p>
+        </div>
+
+        <form id="score-form" class="score-form">
+          <div class="form-grid">
+            <label>
+              <span>考試名稱</span>
+              <input id="exam-name" name="examName" type="text" placeholder="例：高三第一次模擬考" required>
+            </label>
+
+            <label>
+              <span>考試日期</span>
+              <input id="exam-date" name="examDate" type="date" required>
+            </label>
+
+            <label>
+              <span>總分</span>
+              <input id="total-score" name="totalScore" type="number" min="0" max="500" step="0.1" placeholder="例如 378" required>
+            </label>
+
+            <label>
+              <span>國文</span>
+              <input id="chinese-score" name="chineseScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+            </label>
+
+            <label>
+              <span>英文</span>
+              <input id="english-score" name="englishScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+            </label>
+
+            <label>
+              <span>數學</span>
+              <input id="math-score" name="mathScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+            </label>
+
+            <label>
+              <span>社會</span>
+              <input id="social-score" name="socialScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+            </label>
+
+            <label>
+              <span>自然</span>
+              <input id="science-score" name="scienceScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+            </label>
+          </div>
+
+          <label>
+            <span>備註</span>
+            <textarea id="exam-notes" name="notes" rows="3" placeholder="可記錄失誤原因、讀書狀況或這次進步重點"></textarea>
+          </label>
+
+          <div class="form-actions">
+            <button class="primary-btn" type="submit">新增紀錄</button>
+            <button id="reset-form-btn" class="ghost-btn" type="button">清空表單</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel countdown-panel">
+        <div class="panel-heading">
+          <h2>下次考試倒數</h2>
+          <p>設定下一次模擬考時間後，頁面會即時倒數。</p>
+        </div>
+
+        <form id="countdown-form" class="countdown-form">
+          <label>
+            <span>下次考試名稱</span>
+            <input id="next-exam-name" type="text" placeholder="例：第二次模擬考">
+          </label>
+
+          <label>
+            <span>下次考試時間</span>
+            <input id="next-exam-datetime" type="datetime-local">
+          </label>
+
+          <div class="form-actions">
+            <button class="primary-btn" type="submit">儲存倒數</button>
+            <button id="clear-countdown-btn" class="ghost-btn" type="button">清除倒數</button>
+          </div>
+        </form>
+
+        <div class="countdown-card">
+          <p id="countdown-title" class="countdown-title">尚未設定下次考試</p>
+          <div class="countdown-grid">
+            <div><strong id="days-left">--</strong><span>天</span></div>
+            <div><strong id="hours-left">--</strong><span>時</span></div>
+            <div><strong id="minutes-left">--</strong><span>分</span></div>
+            <div><strong id="seconds-left">--</strong><span>秒</span></div>
+          </div>
+          <p id="countdown-subtitle" class="countdown-subtitle">設定日期後就會開始倒數。</p>
+        </div>
+      </section>
+
+      <section class="stats-grid">
+        <article class="panel stat-card">
+          <p>目前筆數</p>
+          <strong id="record-count">0</strong>
+          <span>已記錄的模擬考次數</span>
+        </article>
+        <article class="panel stat-card">
+          <p>平均總分</p>
+          <strong id="average-score">0</strong>
+          <span>所有模擬考總分平均</span>
+        </article>
+        <article class="panel stat-card">
+          <p>最高總分</p>
+          <strong id="highest-score">0</strong>
+          <span>最佳表現</span>
+        </article>
+        <article class="panel stat-card">
+          <p>最近進步</p>
+          <strong id="score-delta">0</strong>
+          <span>與前一次相比的總分差</span>
+        </article>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-heading">
+          <h2>總分成長曲線</h2>
+          <p>依照考試日期排序，觀察整體趨勢。</p>
+        </div>
+        <div class="chart-wrapper">
+          <svg id="trend-chart" viewBox="0 0 800 320" role="img" aria-label="模擬考總分成長曲線"></svg>
+          <div id="chart-empty" class="chart-empty">至少新增 1 筆成績後才會顯示圖表。</div>
+        </div>
+      </section>
+
+      <section class="panel subject-panel">
+        <div class="panel-heading">
+          <h2>科目統計</h2>
+          <p>比較各科平均，找出最穩定與最需要加強的科目。</p>
+        </div>
+        <div id="subject-stats" class="subject-stats"></div>
+      </section>
+
+      <section class="panel records-panel">
+        <div class="panel-heading records-heading">
+          <div>
+            <h2>歷次成績紀錄</h2>
+            <p>支援刪除單筆紀錄，資料會同步更新圖表與統計。</p>
+          </div>
+          <button id="clear-records-btn" class="danger-btn" type="button">清空所有紀錄</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>考試</th>
+                <th>總分</th>
+                <th>國文</th>
+                <th>英文</th>
+                <th>數學</th>
+                <th>社會</th>
+                <th>自然</th>
+                <th>備註</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="records-body">
+              <tr class="empty-row">
+                <td colspan="10">目前還沒有任何模擬考紀錄。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="record-row-template">
+    <tr>
+      <td data-field="date"></td>
+      <td data-field="name"></td>
+      <td data-field="total"></td>
+      <td data-field="chinese"></td>
+      <td data-field="english"></td>
+      <td data-field="math"></td>
+      <td data-field="social"></td>
+      <td data-field="science"></td>
+      <td data-field="notes"></td>
+      <td><button class="table-delete-btn" type="button">刪除</button></td>
+    </tr>
+  </template>
+
+  <script src="script.js"></script>
+</body>
+</html>
