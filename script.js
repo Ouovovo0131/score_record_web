@@ -31,10 +31,10 @@ const metricButtons = Array.from(document.querySelectorAll(".metric-btn"));
 
 const statNodes = {
   recordCount: document.querySelector("#record-count"),
-  averageScore: document.querySelector("#average-score"),
-  highestScore: document.querySelector("#highest-score"),
-  scoreDelta: document.querySelector("#score-delta"),
-  scoreDeltaDetail: document.querySelector("#score-delta-detail"),
+  averageGrade: document.querySelector("#average-grade"),
+  highestGrade: document.querySelector("#highest-grade"),
+  bestImprovementSubject: document.querySelector("#best-improvement-subject"),
+  bestImprovementDetail: document.querySelector("#best-improvement-detail"),
   goalGapValue: document.querySelector("#goal-gap-value"),
   goalGapDetail: document.querySelector("#goal-gap-detail"),
 };
@@ -204,18 +204,18 @@ function renderAll() {
 }
 
 function renderStats() {
-  const totals = getFiniteValues(records.map((record) => record.totalScore));
+  const totalGrades = getFiniteValues(records.map((record) => record.totalGrade));
   const latest = getLatestRecord();
   const previous = getPreviousRecord();
-  const delta = latest && previous ? safeNumber(latest.totalScore) - safeNumber(previous.totalScore) : 0;
+  const bestImprovement = getBestImprovementSubject(latest, previous);
   const goalGap = getGoalGap(latest);
 
   statNodes.recordCount.textContent = String(records.length);
-  statNodes.averageScore.textContent = totals.length ? formatDisplayScore(average(totals)) : "0";
-  statNodes.highestScore.textContent = totals.length ? formatDisplayScore(Math.max(...totals)) : "0";
-  statNodes.scoreDelta.textContent = formatSignedNumber(delta, "分");
-  statNodes.scoreDelta.className = `metric-value ${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}`;
-  statNodes.scoreDeltaDetail.textContent = previous ? "與上一次相比" : "目前只有 1 筆紀錄";
+  statNodes.averageGrade.textContent = totalGrades.length ? formatDisplayScore(average(totalGrades)) : "0";
+  statNodes.highestGrade.textContent = totalGrades.length ? formatDisplayScore(Math.max(...totalGrades)) : "0";
+  statNodes.bestImprovementSubject.textContent = bestImprovement.value;
+  statNodes.bestImprovementSubject.className = `metric-value ${bestImprovement.status}`;
+  statNodes.bestImprovementDetail.textContent = bestImprovement.detail;
   statNodes.goalGapValue.textContent = goalGap.value;
   statNodes.goalGapDetail.textContent = goalGap.detail;
 }
@@ -624,28 +624,9 @@ function loadRecords() {
 }
 
 function loadGoals() {
-  const raw = localStorage.getItem(STORAGE_KEYS.goals);
-  if (!raw) {
-    return { ...DEFAULT_GOALS };
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_GOALS,
-      goalName: typeof parsed.goalName === "string" ? parsed.goalName : "",
-      targetTotalScore: toOptionalNumber(parsed.targetTotalScore),
-      targetTotalGrade: toOptionalInteger(parsed.targetTotalGrade),
-      targetChineseGrade: toOptionalInteger(parsed.targetChineseGrade),
-      targetEnglishGrade: toOptionalInteger(parsed.targetEnglishGrade),
-      targetMathGrade: toOptionalInteger(parsed.targetMathGrade),
-      targetSocialGrade: toOptionalInteger(parsed.targetSocialGrade),
-      targetScienceGrade: toOptionalInteger(parsed.targetScienceGrade),
-    };
-  } catch (error) {
-    reportStorageError("已儲存的目標設定格式錯誤，已重設。", error);
-    return { ...DEFAULT_GOALS };
-  }
+  const fixedGoals = { ...DEFAULT_GOALS };
+  tryPersist(STORAGE_KEYS.goals, fixedGoals, "固定目標設定無法同步到瀏覽器。");
+  return fixedGoals;
 }
 
 function saveRecords(nextRecords) {
@@ -805,6 +786,55 @@ function buildGoalProgressItem(label, currentValue, targetValue, unit) {
   }
 
   return { label, value: `還差 ${diff}${unit}`, detail: `目前 ${currentValue}${unit} / 目標 ${targetValue}${unit}`, status: "negative" };
+}
+
+function getBestImprovementSubject(latest, previous) {
+  if (!latest || !previous) {
+    return { value: "暫無資料", detail: "至少需要 2 筆成績才可比較", status: "" };
+  }
+
+  const comparisons = SUBJECTS
+    .map((subject) => {
+      const latestScore = latest[subject.scoreKey];
+      const previousScore = previous[subject.scoreKey];
+      if (!Number.isFinite(latestScore) || !Number.isFinite(previousScore)) {
+        return null;
+      }
+
+      return {
+        label: subject.label,
+        delta: latestScore - previousScore,
+      };
+    })
+    .filter(Boolean);
+
+  if (!comparisons.length) {
+    return { value: "暫無資料", detail: "缺少可比較的各科分數", status: "" };
+  }
+
+  const best = comparisons.reduce((currentBest, item) => (item.delta > currentBest.delta ? item : currentBest));
+
+  if (best.delta > 0) {
+    return {
+      value: best.label,
+      detail: `比上一場進步 ${formatDisplayScore(best.delta)} 分`,
+      status: "positive",
+    };
+  }
+
+  if (best.delta === 0) {
+    return {
+      value: best.label,
+      detail: "與上一場持平，暫無科目進步",
+      status: "",
+    };
+  }
+
+  return {
+    value: "暫無進步",
+    detail: `${best.label} 變化最小，${formatDisplayScore(best.delta)} 分`,
+    status: "negative",
+  };
 }
 
 function createInsightCard({ title, value, detail, comparison }) {
