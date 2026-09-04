@@ -100,8 +100,8 @@ window.ScoreRecordApp = {
       socialGrade: null,
       scienceScore: 65,
       scienceGrade: 9,
-      reviewTags: ["#首模", "#自然組"],
-      notes: "依成績單整理：自然組（國、英、數A、自然），班排 12/30、校排 75/200、總排 13085/39781、總級分 40。一模日期為 7/29、7/30。",
+      reviewTags: ["#一模", "#自然組"],
+      notes: "班排 12/30、校排 75/200、總排 13085/39781",
     },
   ],
   DEFAULT_GOALS: {
