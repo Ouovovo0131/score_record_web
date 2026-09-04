@@ -74,54 +74,7 @@
           <div id="latest-insight-grid" class="latest-insight-grid"></div>
         </article>
 
-        <aside class="panel goal-panel">
-          <div class="panel-heading">
-            <h2>目標設定模組</h2>
-            <p>固定以台大資工為目標，重點追蹤英文、數 A、自然，並維持國文 12 級分以上。</p>
-          </div>
-
-          <form id="goal-form" class="goal-form">
-            <label>
-              <span>目標校系</span>
-              <input id="goal-name" name="goalName" type="text" placeholder="台大資工" readonly>
-            </label>
-
-            <div class="form-grid compact-grid">
-              <label>
-                <span>目標總分</span>
-                <input name="targetTotalScore" type="number" min="0" max="500" step="0.1" placeholder="固定以級分目標為主" readonly>
-              </label>
-              <label>
-                <span>目標總級分</span>
-                <input name="targetTotalGrade" type="number" min="0" max="75" step="1" placeholder="54" readonly>
-              </label>
-            </div>
-
-            <div class="form-grid compact-grid">
-              <label>
-                <span>國文目標級分</span>
-                <input name="targetChineseGrade" type="number" min="0" max="15" step="1" readonly>
-              </label>
-              <label>
-                <span>英文目標級分</span>
-                <input name="targetEnglishGrade" type="number" min="0" max="15" step="1" readonly>
-              </label>
-              <label>
-                <span>數 A 目標級分</span>
-                <input name="targetMathGrade" type="number" min="0" max="15" step="1" readonly>
-              </label>
-              <label>
-                <span>自然目標級分</span>
-                <input name="targetScienceGrade" type="number" min="0" max="15" step="1" readonly>
-              </label>
-            </div>
-
-            <div class="form-actions">
-              <button class="primary-btn" type="submit" disabled>固定目標：台大資工</button>
-              <button id="reset-goal-btn" class="ghost-btn" type="button" disabled>目前不提供修改</button>
-            </div>
-          </form>
-
+        <aside class="panel goal-panel goal-summary-only">
           <div id="goal-progress-list" class="goal-progress-list"></div>
         </aside>
       </section>

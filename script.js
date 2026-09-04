@@ -63,10 +63,16 @@ function initialize() {
   document.addEventListener("keydown", handleGlobalKeydown);
 
   scoreForm.addEventListener("submit", handleAddRecord);
-  goalForm.addEventListener("submit", handleSaveGoals);
   resetFormButton.addEventListener("click", () => scoreForm.reset());
-  resetGoalButton.addEventListener("click", handleResetGoals);
   clearRecordsButton.addEventListener("click", handleClearRecords);
+
+  if (goalForm) {
+    goalForm.addEventListener("submit", handleSaveGoals);
+  }
+
+  if (resetGoalButton) {
+    resetGoalButton.addEventListener("click", handleResetGoals);
+  }
 
   metricButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -592,6 +598,10 @@ function updateMetricButtons() {
 }
 
 function syncGoalForm() {
+  if (!goalForm) {
+    return;
+  }
+
   setGoalFieldValue("goalName", goals.goalName || "");
   setGoalFieldValue("targetTotalScore", valueToInput(goals.targetTotalScore));
   setGoalFieldValue("targetTotalGrade", valueToInput(goals.targetTotalGrade));
