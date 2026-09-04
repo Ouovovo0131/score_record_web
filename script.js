@@ -592,14 +592,28 @@ function updateMetricButtons() {
 }
 
 function syncGoalForm() {
-  goalForm.goalName.value = goals.goalName || "";
-  goalForm.targetTotalScore.value = valueToInput(goals.targetTotalScore);
-  goalForm.targetTotalGrade.value = valueToInput(goals.targetTotalGrade);
-  goalForm.targetChineseGrade.value = valueToInput(goals.targetChineseGrade);
-  goalForm.targetEnglishGrade.value = valueToInput(goals.targetEnglishGrade);
-  goalForm.targetMathGrade.value = valueToInput(goals.targetMathGrade);
-  goalForm.targetSocialGrade.value = valueToInput(goals.targetSocialGrade);
-  goalForm.targetScienceGrade.value = valueToInput(goals.targetScienceGrade);
+  setGoalFieldValue("goalName", goals.goalName || "");
+  setGoalFieldValue("targetTotalScore", valueToInput(goals.targetTotalScore));
+  setGoalFieldValue("targetTotalGrade", valueToInput(goals.targetTotalGrade));
+  setGoalFieldValue("targetChineseGrade", valueToInput(goals.targetChineseGrade));
+  setGoalFieldValue("targetEnglishGrade", valueToInput(goals.targetEnglishGrade));
+  setGoalFieldValue("targetMathGrade", valueToInput(goals.targetMathGrade));
+  setGoalFieldValue("targetSocialGrade", valueToInput(goals.targetSocialGrade));
+  setGoalFieldValue("targetScienceGrade", valueToInput(goals.targetScienceGrade));
+}
+
+function setGoalFieldValue(fieldName, value) {
+  if (fieldName === "goalName") {
+    if (goalForm.goalName) {
+      goalForm.goalName.value = value;
+    }
+    return;
+  }
+
+  const field = goalForm.elements.namedItem(fieldName);
+  if (field) {
+    field.value = value;
+  }
 }
 
 function loadRecords() {

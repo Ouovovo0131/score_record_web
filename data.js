@@ -108,11 +108,11 @@ window.ScoreRecordApp = {
   DEFAULT_GOALS: {
     goalName: "台大資工",
     targetTotalScore: null,
-    targetTotalGrade: 66,
+    targetTotalGrade: 54,
     targetChineseGrade: 12,
     targetEnglishGrade: 13,
     targetMathGrade: 15,
-    targetSocialGrade: 12,
+    targetSocialGrade: null,
     targetScienceGrade: 14,
   },
   FIXED_SCHEDULES: [
