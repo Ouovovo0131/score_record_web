@@ -1,6 +1,7 @@
 const STORAGE_KEYS = {
   records: "score-record-web.records",
-  countdown: "score-record-web.countdown",
+  schedules: "score-record-web.schedules",
+  legacyCountdown: "score-record-web.countdown",
 };
 
 const SUBJECTS = [
@@ -15,6 +16,7 @@ const scoreForm = document.querySelector("#score-form");
 const countdownForm = document.querySelector("#countdown-form");
 const recordsBody = document.querySelector("#records-body");
 const rowTemplate = document.querySelector("#record-row-template");
+const scheduleTemplate = document.querySelector("#schedule-item-template");
 const loadDemoButton = document.querySelector("#load-demo-btn");
 const resetFormButton = document.querySelector("#reset-form-btn");
 const clearRecordsButton = document.querySelector("#clear-records-btn");
@@ -29,6 +31,7 @@ const daysLeft = document.querySelector("#days-left");
 const hoursLeft = document.querySelector("#hours-left");
 const minutesLeft = document.querySelector("#minutes-left");
 const secondsLeft = document.querySelector("#seconds-left");
+const scheduleList = document.querySelector("#schedule-list");
 
 const statNodes = {
   recordCount: document.querySelector("#record-count"),
@@ -39,23 +42,25 @@ const statNodes = {
 
 const subjectStatsContainer = document.querySelector("#subject-stats");
 const nextExamNameInput = document.querySelector("#next-exam-name");
-const nextExamDatetimeInput = document.querySelector("#next-exam-datetime");
+const nextExamStartDateInput = document.querySelector("#next-exam-start-date");
+const nextExamEndDateInput = document.querySelector("#next-exam-end-date");
+
+migrateLegacyCountdown();
 
 let records = loadRecords();
-let countdownInfo = loadCountdown();
+let schedules = loadSchedules();
 let countdownTimerId = null;
 
 initialize();
 
 function initialize() {
   scoreForm.addEventListener("submit", handleAddRecord);
-  countdownForm.addEventListener("submit", handleSaveCountdown);
+  countdownForm.addEventListener("submit", handleAddSchedule);
   loadDemoButton.addEventListener("click", handleLoadDemoData);
   resetFormButton.addEventListener("click", () => scoreForm.reset());
   clearRecordsButton.addEventListener("click", handleClearRecords);
-  clearCountdownButton.addEventListener("click", handleClearCountdown);
+  clearCountdownButton.addEventListener("click", handleClearSchedules);
 
-  syncCountdownForm();
   renderAll();
   startCountdownTimer();
 }
@@ -92,33 +97,37 @@ function handleAddRecord(event) {
   showStatus("已新增模擬考紀錄。", "success");
 }
 
-function handleSaveCountdown(event) {
+function handleAddSchedule(event) {
   event.preventDefault();
 
   const name = nextExamNameInput.value.trim();
-  const dateTime = nextExamDatetimeInput.value;
+  const startDate = nextExamStartDateInput.value;
+  const endDate = nextExamEndDateInput.value || startDate;
 
-  if (!name || !dateTime) {
-    window.alert("請先輸入下次考試名稱與時間。");
+  if (!name || !startDate) {
+    window.alert("請先輸入考試名稱與開始日期。");
     return;
   }
 
-  if (!saveCountdown({ name, dateTime })) {
+  if (new Date(endDate) < new Date(startDate)) {
+    window.alert("結束日期不能早於開始日期。");
     return;
   }
 
-  renderCountdown();
-  showStatus("已更新下次考試倒數。", "success");
-}
+  const nextSchedules = sortSchedules(schedules.concat({
+    id: crypto.randomUUID(),
+    name,
+    startDate,
+    endDate,
+  }));
 
-function handleClearCountdown() {
-  if (!saveCountdown(null)) {
+  if (!saveSchedules(nextSchedules)) {
     return;
   }
 
   countdownForm.reset();
-  renderCountdown();
-  showStatus("已清除倒數設定。", "success");
+  renderSchedules();
+  showStatus("已新增考試倒數。", "success");
 }
 
 function handleDeleteRecord(recordId) {
@@ -129,6 +138,16 @@ function handleDeleteRecord(recordId) {
 
   renderAll();
   showStatus("已刪除該筆成績紀錄。", "success");
+}
+
+function handleDeleteSchedule(scheduleId) {
+  const nextSchedules = schedules.filter((schedule) => schedule.id !== scheduleId);
+  if (!saveSchedules(nextSchedules)) {
+    return;
+  }
+
+  renderSchedules();
+  showStatus("已刪除該筆考程。", "success");
 }
 
 function handleClearRecords() {
@@ -150,8 +169,28 @@ function handleClearRecords() {
   showStatus("已清空所有模擬考紀錄。", "success");
 }
 
+function handleClearSchedules() {
+  if (!schedules.length) {
+    window.alert("目前沒有可清空的考程。");
+    return;
+  }
+
+  const confirmed = window.confirm("確定要清空所有考試倒數嗎？");
+  if (!confirmed) {
+    return;
+  }
+
+  if (!saveSchedules([])) {
+    return;
+  }
+
+  countdownForm.reset();
+  renderSchedules();
+  showStatus("已清空所有考程。", "success");
+}
+
 function handleLoadDemoData() {
-  if (records.length) {
+  if (records.length || schedules.length) {
     const confirmed = window.confirm("載入示範資料會保留目前資料並一起顯示，是否繼續？");
     if (!confirmed) {
       return;
@@ -197,22 +236,17 @@ function handleLoadDemoData() {
     },
   ];
 
+  const demoSchedules = [
+    { id: crypto.randomUUID(), name: "期中考", startDate: "2026-10-12", endDate: "2026-10-13" },
+    { id: crypto.randomUUID(), name: "第三次模擬考", startDate: "2026-10-28", endDate: "2026-10-29" },
+  ];
+
   if (!saveRecords(sortRecords(records.concat(demoRecords)))) {
     return;
   }
 
-  if (!countdownInfo) {
-    const nextMonth = new Date();
-    nextMonth.setDate(nextMonth.getDate() + 30);
-    nextMonth.setHours(8, 0, 0, 0);
-    if (!saveCountdown({
-      name: "下一次模擬考",
-      dateTime: formatDateTimeLocal(nextMonth),
-    })) {
-      return;
-    }
-
-    syncCountdownForm();
+  if (!saveSchedules(sortSchedules(schedules.concat(demoSchedules)))) {
+    return;
   }
 
   renderAll();
@@ -224,7 +258,7 @@ function renderAll() {
   renderStats();
   renderSubjectStats();
   renderChart();
-  renderCountdown();
+  renderSchedules();
 }
 
 function renderRecords() {
@@ -394,6 +428,64 @@ function renderChart() {
   });
 }
 
+function renderSchedules() {
+  renderCountdownSummary();
+  renderScheduleList();
+}
+
+function renderCountdownSummary() {
+  const primarySchedule = getPrimarySchedule();
+  if (!primarySchedule) {
+    countdownTitle.textContent = "尚未設定考試";
+    countdownSubtitle.textContent = "新增考程後就會顯示最近一場考試的倒數。";
+    setCountdownValues("--", "--", "--", "--");
+    return;
+  }
+
+  const scheduleState = getScheduleState(primarySchedule, new Date());
+  if (scheduleState.phase === "active") {
+    countdownTitle.textContent = `${primarySchedule.name} 進行中`;
+    countdownSubtitle.textContent = `${formatScheduleRange(primarySchedule)} · 第 ${scheduleState.currentDay} / ${scheduleState.totalDays} 天`;
+    setCountdownFromMs(scheduleState.diffMs);
+    return;
+  }
+
+  if (scheduleState.phase === "completed") {
+    countdownTitle.textContent = `${primarySchedule.name} 已結束`;
+    countdownSubtitle.textContent = formatScheduleRange(primarySchedule);
+    setCountdownValues("0", "0", "0", "0");
+    return;
+  }
+
+  countdownTitle.textContent = `${primarySchedule.name} 倒數`;
+  countdownSubtitle.textContent = formatScheduleRange(primarySchedule);
+  setCountdownFromMs(scheduleState.diffMs);
+}
+
+function renderScheduleList() {
+  scheduleList.innerHTML = "";
+
+  if (!schedules.length) {
+    scheduleList.innerHTML = '<div class="schedule-empty">目前還沒有任何考程。</div>';
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  const now = new Date();
+
+  schedules.forEach((schedule) => {
+    const node = scheduleTemplate.content.firstElementChild.cloneNode(true);
+    const state = getScheduleState(schedule, now);
+    node.querySelector(".schedule-item-name").textContent = schedule.name;
+    node.querySelector(".schedule-item-dates").textContent = formatScheduleRange(schedule);
+    node.querySelector(".schedule-item-status").textContent = formatScheduleStatus(state);
+    node.querySelector(".schedule-delete-btn").addEventListener("click", () => handleDeleteSchedule(schedule.id));
+    fragment.appendChild(node);
+  });
+
+  scheduleList.appendChild(fragment);
+}
+
 function appendSvgNode(tagName, attributes, textContent = "") {
   const node = document.createElementNS("http://www.w3.org/2000/svg", tagName);
   Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
@@ -403,38 +495,13 @@ function appendSvgNode(tagName, attributes, textContent = "") {
   chart.appendChild(node);
 }
 
-function renderCountdown() {
-  if (!countdownInfo) {
-    countdownTitle.textContent = "尚未設定下次考試";
-    countdownSubtitle.textContent = "設定日期後就會開始倒數。";
-    setCountdownValues("--", "--", "--", "--");
-    return;
-  }
-
-  const targetDate = new Date(countdownInfo.dateTime);
-  if (Number.isNaN(targetDate.getTime())) {
-    countdownTitle.textContent = "倒數資料格式錯誤";
-    countdownSubtitle.textContent = "請重新設定下次考試時間。";
-    setCountdownValues("--", "--", "--", "--");
-    return;
-  }
-
-  const diffMs = targetDate.getTime() - Date.now();
-  if (diffMs <= 0) {
-    countdownTitle.textContent = `${countdownInfo.name} 已經到了`;
-    countdownSubtitle.textContent = `目標時間：${formatDateTime(targetDate)}`;
-    setCountdownValues("0", "0", "0", "0");
-    return;
-  }
-
-  const totalSeconds = Math.floor(diffMs / 1000);
+function setCountdownFromMs(diffMs) {
+  const safeMs = Math.max(diffMs, 0);
+  const totalSeconds = Math.floor(safeMs / 1000);
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-
-  countdownTitle.textContent = countdownInfo.name;
-  countdownSubtitle.textContent = `目標時間：${formatDateTime(targetDate)}`;
   setCountdownValues(String(days), padTime(hours), padTime(minutes), padTime(seconds));
 }
 
@@ -450,7 +517,7 @@ function startCountdownTimer() {
     window.clearInterval(countdownTimerId);
   }
 
-  countdownTimerId = window.setInterval(renderCountdown, 1000);
+  countdownTimerId = window.setInterval(renderSchedules, 1000);
 }
 
 function saveRecords(nextRecords) {
@@ -464,18 +531,13 @@ function saveRecords(nextRecords) {
   }
 }
 
-function saveCountdown(nextCountdown) {
+function saveSchedules(nextSchedules) {
   try {
-    if (nextCountdown === null) {
-      localStorage.removeItem(STORAGE_KEYS.countdown);
-    } else {
-      localStorage.setItem(STORAGE_KEYS.countdown, JSON.stringify(nextCountdown));
-    }
-
-    countdownInfo = nextCountdown;
+    localStorage.setItem(STORAGE_KEYS.schedules, JSON.stringify(nextSchedules));
+    schedules = nextSchedules;
     return true;
   } catch (error) {
-    reportStorageError("倒數資料無法儲存到瀏覽器。", error);
+    reportStorageError("考程資料無法儲存到瀏覽器。", error);
     return false;
   }
 }
@@ -495,36 +557,130 @@ function loadRecords() {
   }
 }
 
-function loadCountdown() {
-  const raw = localStorage.getItem(STORAGE_KEYS.countdown);
+function loadSchedules() {
+  const raw = localStorage.getItem(STORAGE_KEYS.schedules);
   if (!raw) {
-    return null;
+    return [];
   }
 
   try {
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.name === "string" && typeof parsed.dateTime === "string") {
-      return parsed;
-    }
+    return Array.isArray(parsed) ? sortSchedules(parsed.filter(isStoredSchedule)) : [];
   } catch (error) {
-    reportStorageError("已儲存的倒數資料格式錯誤，請重新設定。", error);
+    reportStorageError("已儲存的考程資料格式錯誤，請重新設定。", error);
+    return [];
   }
-
-  return null;
 }
 
-function syncCountdownForm() {
-  if (!countdownInfo) {
-    countdownForm.reset();
+function migrateLegacyCountdown() {
+  const schedulesRaw = localStorage.getItem(STORAGE_KEYS.schedules);
+  const legacyRaw = localStorage.getItem(STORAGE_KEYS.legacyCountdown);
+  if (schedulesRaw || !legacyRaw) {
     return;
   }
 
-  nextExamNameInput.value = countdownInfo.name;
-  nextExamDatetimeInput.value = countdownInfo.dateTime;
+  try {
+    const parsed = JSON.parse(legacyRaw);
+    if (parsed && typeof parsed.name === "string" && typeof parsed.dateTime === "string") {
+      const startDate = parsed.dateTime.slice(0, 10);
+      localStorage.setItem(STORAGE_KEYS.schedules, JSON.stringify([{
+        id: crypto.randomUUID(),
+        name: parsed.name,
+        startDate,
+        endDate: startDate,
+      }]));
+    }
+  } catch (error) {
+    console.error("舊版倒數資料轉換失敗。", error);
+  }
+
+  localStorage.removeItem(STORAGE_KEYS.legacyCountdown);
 }
 
 function sortRecords(sourceRecords) {
   return [...sourceRecords].sort((left, right) => new Date(left.examDate) - new Date(right.examDate));
+}
+
+function sortSchedules(sourceSchedules) {
+  return [...sourceSchedules].sort((left, right) => new Date(left.startDate) - new Date(right.startDate));
+}
+
+function getPrimarySchedule() {
+  const now = new Date();
+  return schedules.find((schedule) => {
+    const state = getScheduleState(schedule, now);
+    return state.phase === "active";
+  }) || schedules.find((schedule) => {
+    const state = getScheduleState(schedule, now);
+    return state.phase === "upcoming";
+  }) || schedules.at(-1) || null;
+}
+
+function getScheduleState(schedule, now) {
+  const start = parseStartDate(schedule.startDate);
+  const end = parseEndDate(schedule.endDate || schedule.startDate);
+
+  if (now < start) {
+    return {
+      phase: "upcoming",
+      diffMs: start.getTime() - now.getTime(),
+      start,
+      end,
+    };
+  }
+
+  if (now <= end) {
+    const totalDays = Math.floor((stripTime(end).getTime() - stripTime(start).getTime()) / 86400000) + 1;
+    const currentDay = Math.floor((stripTime(now).getTime() - stripTime(start).getTime()) / 86400000) + 1;
+    return {
+      phase: "active",
+      diffMs: end.getTime() - now.getTime(),
+      totalDays,
+      currentDay,
+      start,
+      end,
+    };
+  }
+
+  return {
+    phase: "completed",
+    diffMs: 0,
+    start,
+    end,
+  };
+}
+
+function formatScheduleStatus(state) {
+  if (state.phase === "upcoming") {
+    return `距離開始還有 ${formatDurationShort(state.diffMs)}`;
+  }
+
+  if (state.phase === "active") {
+    return `考試進行中，第 ${state.currentDay} / ${state.totalDays} 天`;
+  }
+
+  return "已結束";
+}
+
+function formatScheduleRange(schedule) {
+  const startLabel = formatDate(schedule.startDate);
+  const endValue = schedule.endDate || schedule.startDate;
+  if (endValue === schedule.startDate) {
+    return startLabel;
+  }
+  return `${startLabel} - ${formatDate(endValue)}`;
+}
+
+function parseStartDate(dateString) {
+  return new Date(`${dateString}T00:00:00`);
+}
+
+function parseEndDate(dateString) {
+  return new Date(`${dateString}T23:59:59`);
+}
+
+function stripTime(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function isValidRecord(record) {
@@ -543,6 +699,14 @@ function isStoredRecord(record) {
     typeof record.examDate === "string" &&
     Number.isFinite(Number(record.totalScore)) &&
     SUBJECTS.every((subject) => Number.isFinite(Number(record[subject.key])));
+}
+
+function isStoredSchedule(schedule) {
+  return schedule &&
+    typeof schedule.id === "string" &&
+    typeof schedule.name === "string" &&
+    typeof schedule.startDate === "string" &&
+    typeof schedule.endDate === "string";
 }
 
 function average(values) {
@@ -582,23 +746,15 @@ function compactDate(dateString) {
   return `${month}/${day}`;
 }
 
-function formatDateTime(date) {
-  return new Intl.DateTimeFormat("zh-TW", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function formatDateTimeLocal(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hour}:${minute}`;
+function formatDurationShort(diffMs) {
+  const totalSeconds = Math.floor(Math.max(diffMs, 0) / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  if (days > 0) {
+    return `${days} 天 ${hours} 小時`;
+  }
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  return `${hours} 小時 ${minutes} 分`;
 }
 
 function padTime(value) {

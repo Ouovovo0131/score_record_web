@@ -85,36 +85,45 @@
 
       <section class="panel countdown-panel">
         <div class="panel-heading">
-          <h2>下次考試倒數</h2>
-          <p>設定下一次模擬考時間後，頁面會即時倒數。</p>
+          <h2>考試倒數與考程</h2>
+          <p>可以同時記錄多個考試日期，系統會自動抓出最近的一場進行倒數。</p>
         </div>
 
         <form id="countdown-form" class="countdown-form">
           <label>
-            <span>下次考試名稱</span>
-            <input id="next-exam-name" type="text" placeholder="例：第二次模擬考">
+            <span>考試名稱</span>
+            <input id="next-exam-name" type="text" placeholder="例：第三次模擬考">
           </label>
 
           <label>
-            <span>下次考試時間</span>
-            <input id="next-exam-datetime" type="datetime-local">
+            <span>開始日期</span>
+            <input id="next-exam-start-date" type="date">
+          </label>
+
+          <label>
+            <span>結束日期（選填，不填視為單日）</span>
+            <input id="next-exam-end-date" type="date">
           </label>
 
           <div class="form-actions">
-            <button class="primary-btn" type="submit">儲存倒數</button>
-            <button id="clear-countdown-btn" class="ghost-btn" type="button">清除倒數</button>
+            <button class="primary-btn" type="submit">新增考程</button>
+            <button id="clear-countdown-btn" class="ghost-btn" type="button">清空考程</button>
           </div>
         </form>
 
         <div class="countdown-card">
-          <p id="countdown-title" class="countdown-title">尚未設定下次考試</p>
+          <p id="countdown-title" class="countdown-title">尚未設定考試</p>
           <div class="countdown-grid">
             <div><strong id="days-left">--</strong><span>天</span></div>
             <div><strong id="hours-left">--</strong><span>時</span></div>
             <div><strong id="minutes-left">--</strong><span>分</span></div>
             <div><strong id="seconds-left">--</strong><span>秒</span></div>
           </div>
-          <p id="countdown-subtitle" class="countdown-subtitle">設定日期後就會開始倒數。</p>
+          <p id="countdown-subtitle" class="countdown-subtitle">新增考程後就會顯示最近一場考試的倒數。</p>
+        </div>
+
+        <div id="schedule-list" class="schedule-list">
+          <div class="schedule-empty">目前還沒有任何考程。</div>
         </div>
       </section>
 
@@ -209,6 +218,17 @@
       <td data-field="notes"></td>
       <td><button class="table-delete-btn" type="button">刪除</button></td>
     </tr>
+  </template>
+
+  <template id="schedule-item-template">
+    <article class="schedule-item">
+      <div class="schedule-item-main">
+        <p class="schedule-item-name"></p>
+        <p class="schedule-item-dates"></p>
+        <p class="schedule-item-status"></p>
+      </div>
+      <button class="table-delete-btn schedule-delete-btn" type="button">刪除</button>
+    </article>
   </template>
 
   <script src="script.js"></script>
