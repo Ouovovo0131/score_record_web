@@ -128,6 +128,10 @@ window.ScoreRecordApp = {
     { key: "miaomiao", label: "妙妙卷" },
     { key: "cloze", label: "克漏字" },
   ],
+  ENGLISH_UNAVAILABLE_CATEGORY_MAP: {
+    miaomiao: [],
+    cloze: ["vocabularyScore", "readingScore", "mixedScore"],
+  },
   ENGLISH_CATEGORIES: [
     { key: "vocabularyScore", label: "詞彙題" },
     { key: "clozeScore", label: "綜合測驗" },

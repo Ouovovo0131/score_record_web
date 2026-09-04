@@ -1,6 +1,7 @@
 const {
   STORAGE_KEYS,
   ENGLISH_PRACTICE_TYPES,
+  ENGLISH_UNAVAILABLE_CATEGORY_MAP,
   ENGLISH_CATEGORIES,
   average,
   compactDate: formatCompactDate,
@@ -54,7 +55,9 @@ function initializeEnglishPage() {
   resetEnglishFormButton.addEventListener("click", () => englishForm.reset());
   clearEnglishRecordsButton.addEventListener("click", handleClearEnglishRecords);
   englishForm.addEventListener("submit", handleAddEnglishRecord);
+  englishForm.practiceType.addEventListener("change", syncEnglishCategoryInputs);
   document.addEventListener("keydown", handleEnglishKeydown);
+  syncEnglishCategoryInputs();
   renderEnglishPage();
 }
 
@@ -82,6 +85,8 @@ function handleAddEnglishRecord(event) {
     totalScore: toOptionalNumber(formData.get("totalScore")),
     notes: String(formData.get("notes")).trim(),
   };
+
+  applyUnavailableEnglishCategories(record);
 
   if (record.totalScore === null) {
     record.totalScore = sumEnglishScores(record);
@@ -189,9 +194,11 @@ function renderEnglishLatestInsight() {
 
     fragment.appendChild(createEnglishInsightCard({
       title: category.label,
-      value: formatMaybeNumber(latest[category.key]),
-      detail: `${typeLabel} 最近一次`,
-      comparison: buildEnglishComparison(latest[category.key], baselineValue),
+      value: formatEnglishCategoryValue(latest, category.key),
+      detail: isUnavailableCategory(latest.practiceType, category.key) ? `${typeLabel} 不含此題型` : `${typeLabel} 最近一次`,
+      comparison: isUnavailableCategory(latest.practiceType, category.key)
+        ? { icon: "-", tone: "neutral", label: "此練習類型不適用" }
+        : buildEnglishComparison(latest[category.key], baselineValue),
     }));
   });
 
@@ -460,12 +467,12 @@ function renderEnglishTable() {
     row.querySelector('[data-field="type"]').textContent = getPracticeTypeLabel(record.practiceType);
     row.querySelector('[data-field="name"]').textContent = record.practiceName || "—";
     row.querySelector('[data-field="total"]').textContent = formatMaybeNumber(record.totalScore);
-    row.querySelector('[data-field="vocabulary"]').textContent = formatMaybeNumber(record.vocabularyScore);
+    row.querySelector('[data-field="vocabulary"]').textContent = formatEnglishCategoryValue(record, "vocabularyScore");
     row.querySelector('[data-field="cloze"]').textContent = formatMaybeNumber(record.clozeScore);
     row.querySelector('[data-field="context"]').textContent = formatMaybeNumber(record.contextScore);
     row.querySelector('[data-field="structure"]').textContent = formatMaybeNumber(record.structureScore);
-    row.querySelector('[data-field="reading"]').textContent = formatMaybeNumber(record.readingScore);
-    row.querySelector('[data-field="mixed"]').textContent = formatMaybeNumber(record.mixedScore);
+    row.querySelector('[data-field="reading"]').textContent = formatEnglishCategoryValue(record, "readingScore");
+    row.querySelector('[data-field="mixed"]').textContent = formatEnglishCategoryValue(record, "mixedScore");
     row.querySelector('[data-field="notes"]').textContent = record.notes || "—";
     row.querySelector(".table-delete-btn").addEventListener("click", () => handleDeleteEnglishRecord(record.id));
     fragment.appendChild(row);
@@ -520,6 +527,8 @@ function normalizeEnglishRecord(record) {
     notes: typeof record.notes === "string" ? record.notes.trim() : "",
   };
 
+  applyUnavailableEnglishCategories(normalized);
+
   if (normalized.totalScore === null) {
     normalized.totalScore = sumEnglishScores(normalized);
   }
@@ -550,6 +559,14 @@ function getPracticeTypeLabel(typeKey) {
   return ENGLISH_PRACTICE_TYPES.find((type) => type.key === typeKey)?.label || typeKey;
 }
 
+function getUnavailableCategoryKeys(practiceType) {
+  return ENGLISH_UNAVAILABLE_CATEGORY_MAP[practiceType] || [];
+}
+
+function isUnavailableCategory(practiceType, categoryKey) {
+  return getUnavailableCategoryKeys(practiceType).includes(categoryKey);
+}
+
 function formatTypeAverage(typeKey) {
   const values = getFiniteValues(
     englishRecords
@@ -562,6 +579,12 @@ function formatTypeAverage(typeKey) {
 function sumEnglishScores(record) {
   const values = ENGLISH_CATEGORIES.map((category) => record[category.key]).filter((value) => Number.isFinite(value));
   return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+}
+
+function applyUnavailableEnglishCategories(record) {
+  getUnavailableCategoryKeys(record.practiceType).forEach((categoryKey) => {
+    record[categoryKey] = null;
+  });
 }
 
 function createEnglishInsightCard({ title, value, detail, comparison }) {
@@ -612,6 +635,7 @@ function appendSvgNode(target, tagName, attributes, textContent = "") {
 function openEnglishModal() {
   englishModal.hidden = false;
   document.body.classList.add("modal-open");
+  syncEnglishCategoryInputs();
 }
 
 function closeEnglishModal() {
@@ -626,6 +650,29 @@ function isValidEnglishRecord(record) {
 
 function formatMaybeNumber(value) {
   return Number.isFinite(value) ? formatDisplayScore(value) : "—";
+}
+
+function formatEnglishCategoryValue(record, categoryKey) {
+  if (isUnavailableCategory(record.practiceType, categoryKey)) {
+    return "-";
+  }
+  return formatMaybeNumber(record[categoryKey]);
+}
+
+function syncEnglishCategoryInputs() {
+  ENGLISH_CATEGORIES.forEach((category) => {
+    const input = englishForm.elements.namedItem(category.key);
+    if (!input) {
+      return;
+    }
+
+    const unavailable = isUnavailableCategory(englishForm.practiceType.value, category.key);
+    input.disabled = unavailable;
+    input.placeholder = unavailable ? "-" : "";
+    if (unavailable) {
+      input.value = "";
+    }
+  });
 }
 
 function toOptionalNumber(value) {
