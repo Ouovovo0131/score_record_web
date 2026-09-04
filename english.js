@@ -188,14 +188,17 @@ function renderEnglishLatestInsight() {
   }));
 
   ENGLISH_CATEGORIES.forEach((category) => {
-    const baselineValue = baseline
-      ? baseline[category.key]
-      : average(getFiniteValues(englishRecords.map((record) => record[category.key])));
+    const baselineValue = getLatestInsightBaseline(latest, baseline, category);
+    const miaomiaoOnly = isMiaomiaoOnlyCategory(category.key);
 
     fragment.appendChild(createEnglishInsightCard({
       title: category.label,
       value: formatEnglishCategoryValue(latest, category.key),
-      detail: isUnavailableCategory(latest.practiceType, category.key) ? `${typeLabel} 不含此題型` : `${typeLabel} 最近一次`,
+      detail: isUnavailableCategory(latest.practiceType, category.key)
+        ? `${typeLabel} 不含此題型`
+        : miaomiaoOnly
+          ? "僅統計妙妙卷"
+          : `${typeLabel} 最近一次`,
       comparison: isUnavailableCategory(latest.practiceType, category.key)
         ? { icon: "-", tone: "neutral", label: "此練習類型不適用" }
         : buildEnglishComparison(latest[category.key], baselineValue),
@@ -240,7 +243,7 @@ function renderEnglishFindings() {
 
   const averages = ENGLISH_CATEGORIES.map((category) => ({
     label: category.label,
-    value: average(getFiniteValues(englishRecords.map((record) => record[category.key]))),
+    value: getCategoryAverageRate(category.key),
   })).filter((item) => Number.isFinite(item.value));
 
   if (!averages.length) {
@@ -253,8 +256,8 @@ function renderEnglishFindings() {
   const weakest = averages.at(-1);
 
   englishPracticeFindings.innerHTML = `
-    <p><strong>最穩定題型：</strong>${strongest.label}（平均 ${formatDisplayScore(strongest.value)}）</p>
-    <p><strong>最需要補強：</strong>${weakest.label}（平均 ${formatDisplayScore(weakest.value)}）</p>
+    <p><strong>最穩定題型：</strong>${strongest.label}（平均得分率 ${formatDisplayScore(strongest.value)}%）</p>
+    <p><strong>最需要補強：</strong>${weakest.label}（平均得分率 ${formatDisplayScore(weakest.value)}%）</p>
   `;
 }
 
@@ -369,7 +372,9 @@ function renderEnglishCategoryChart() {
     return;
   }
 
-  const hasAnyCategory = ENGLISH_CATEGORIES.some((category) => getFiniteValues(englishRecords.map((record) => record[category.key])).length);
+  const hasAnyCategory = ENGLISH_CATEGORIES.some((category) => {
+    return ENGLISH_PRACTICE_TYPES.some((type) => Number.isFinite(getCategoryRateByType(category.key, type.key)));
+  });
   if (!hasAnyCategory) {
     englishCategoryEmpty.hidden = false;
     return;
@@ -420,13 +425,9 @@ function renderEnglishCategoryChart() {
     const barWidth = Math.min(24, (barGroupWidth - 18) / 2);
 
     ENGLISH_PRACTICE_TYPES.forEach((type, typeIndex) => {
-      const typeAverage = average(getFiniteValues(
-        englishRecords
-          .filter((record) => record.practiceType === type.key)
-          .map((record) => record[category.key])
-      ));
-
-      const safeAverage = Number.isFinite(typeAverage) ? Math.max(0, Math.min(100, typeAverage)) : 0;
+      const typeAverageRate = getCategoryRateByType(category.key, type.key);
+      const unavailable = isUnavailableCategory(type.key, category.key);
+      const safeAverage = Number.isFinite(typeAverageRate) ? Math.max(0, Math.min(100, typeAverageRate)) : 0;
       const barHeight = ((height - padding.top - padding.bottom) * safeAverage) / 100;
       const x = groupX + 10 + typeIndex * (barWidth + 8);
       const y = height - padding.bottom - barHeight;
@@ -438,8 +439,16 @@ function renderEnglishCategoryChart() {
         height: barHeight,
         rx: "8",
         fill: colors[type.key],
-        opacity: Number.isFinite(typeAverage) ? "1" : "0.2",
+        opacity: Number.isFinite(typeAverageRate) ? "1" : unavailable ? "0.15" : "0.2",
       });
+
+      appendSvgNode(englishCategoryChart, "text", {
+        x: x + barWidth / 2,
+        y: Number.isFinite(typeAverageRate) ? Math.max(padding.top + 12, y - 8) : y - 8,
+        fill: unavailable ? "#7e879a" : "#4d5972",
+        "font-size": "10",
+        "text-anchor": "middle",
+      }, unavailable ? "-" : Number.isFinite(typeAverageRate) ? `${formatDisplayScore(typeAverageRate)}%` : "—");
     });
 
     appendSvgNode(englishCategoryChart, "text", {
@@ -567,6 +576,10 @@ function isUnavailableCategory(practiceType, categoryKey) {
   return getUnavailableCategoryKeys(practiceType).includes(categoryKey);
 }
 
+function isMiaomiaoOnlyCategory(categoryKey) {
+  return isUnavailableCategory("cloze", categoryKey);
+}
+
 function formatTypeAverage(typeKey) {
   const values = getFiniteValues(
     englishRecords
@@ -614,6 +627,69 @@ function buildEnglishComparison(currentValue, baselineValue) {
   }
 
   return { icon: "•", tone: "neutral", label: "與基準持平" };
+}
+
+function getLatestInsightBaseline(latest, baseline, category) {
+  if (isMiaomiaoOnlyCategory(category.key)) {
+    if (latest.practiceType === "miaomiao") {
+      const previousMiaomiaoCategoryRecord = getPreviousCategoryRecord(latest, category.key, "miaomiao");
+      if (previousMiaomiaoCategoryRecord) {
+        return previousMiaomiaoCategoryRecord[category.key];
+      }
+    }
+    return getCategoryAverageValue(category.key, "miaomiao");
+  }
+
+  if (baseline && Number.isFinite(baseline[category.key])) {
+    return baseline[category.key];
+  }
+
+  const sameTypeBaseline = getPreviousCategoryRecord(latest, category.key, latest.practiceType);
+  if (sameTypeBaseline) {
+    return sameTypeBaseline[category.key];
+  }
+
+  return getCategoryAverageValue(category.key);
+}
+
+function getPreviousCategoryRecord(latestRecord, categoryKey, practiceType) {
+  const recordsToSearch = englishRecords
+    .filter((record) => record.id !== latestRecord.id && (!practiceType || record.practiceType === practiceType))
+    .filter((record) => new Date(record.practiceDate) <= new Date(latestRecord.practiceDate))
+    .filter((record) => Number.isFinite(record[categoryKey]));
+
+  return recordsToSearch.at(-1) || null;
+}
+
+function getCategoryAverageValue(categoryKey, practiceType) {
+  const values = getCategoryValues(categoryKey, practiceType);
+  return values.length ? average(values) : null;
+}
+
+function getCategoryAverageRate(categoryKey, practiceType) {
+  const category = ENGLISH_CATEGORIES.find((item) => item.key === categoryKey);
+  if (!category || !Number.isFinite(category.maxScore) || category.maxScore <= 0) {
+    return null;
+  }
+
+  const rates = getCategoryValues(categoryKey, practiceType).map((value) => (value / category.maxScore) * 100);
+  return rates.length ? average(rates) : null;
+}
+
+function getCategoryValues(categoryKey, practiceType) {
+  return getFiniteValues(
+    englishRecords
+      .filter((record) => !practiceType || record.practiceType === practiceType)
+      .filter((record) => !isUnavailableCategory(record.practiceType, categoryKey))
+      .map((record) => record[categoryKey])
+  );
+}
+
+function getCategoryRateByType(categoryKey, practiceType) {
+  if (isUnavailableCategory(practiceType, categoryKey)) {
+    return null;
+  }
+  return getCategoryAverageRate(categoryKey, practiceType);
 }
 
 function createTag(text) {

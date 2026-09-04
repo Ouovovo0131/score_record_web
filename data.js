@@ -133,12 +133,12 @@ window.ScoreRecordApp = {
     cloze: ["vocabularyScore", "readingScore", "mixedScore"],
   },
   ENGLISH_CATEGORIES: [
-    { key: "vocabularyScore", label: "詞彙題" },
-    { key: "clozeScore", label: "綜合測驗" },
-    { key: "contextScore", label: "文意選填" },
-    { key: "structureScore", label: "篇章結構" },
-    { key: "readingScore", label: "閱讀題" },
-    { key: "mixedScore", label: "混合題" },
+    { key: "vocabularyScore", label: "詞彙題", maxScore: 10 },
+    { key: "clozeScore", label: "綜合測驗", maxScore: 10 },
+    { key: "contextScore", label: "文意選填", maxScore: 10 },
+    { key: "structureScore", label: "篇章結構", maxScore: 8 },
+    { key: "readingScore", label: "閱讀題", maxScore: 24 },
+    { key: "mixedScore", label: "混合題", maxScore: 10 },
   ],
   average(values) {
     return values.reduce((sum, value) => sum + value, 0) / values.length;
