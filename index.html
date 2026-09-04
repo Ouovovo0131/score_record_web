@@ -12,146 +12,172 @@
       <div>
         <p class="eyebrow">Score Record Dashboard</p>
         <h1>模擬考成績統計</h1>
-        <p class="hero-copy">
-          專門用來記錄與分析模擬考成績；考程倒數已拆成獨立頁面。
-        </p>
+        <p class="hero-copy">用最省空間的儀表板方式追蹤分數、級分、目標差距與考後檢討重點。</p>
       </div>
-      <nav class="page-nav" aria-label="主要頁面">
-        <a class="nav-link is-active" href="index.html">成績統計</a>
-        <a class="nav-link" href="countdown.html">考程倒數</a>
-      </nav>
+
+      <div class="hero-actions">
+        <nav class="page-nav" aria-label="主要頁面">
+          <a class="nav-link is-active" href="index.html">成績統計</a>
+          <a class="nav-link" href="countdown.html">考程倒數</a>
+        </nav>
+        <button id="open-score-modal-btn" class="primary-btn add-score-btn" type="button">＋ 新增成績</button>
+      </div>
     </header>
 
     <div id="status-message" class="status-message" hidden></div>
 
     <main class="dashboard">
-      <section class="panel built-in-panel">
-        <div class="panel-heading">
-          <h2>已寫入的一模成績</h2>
-          <p>程式已內建你的第一次模擬考資料，會當作初始紀錄顯示。</p>
-        </div>
-        <div class="built-in-grid">
-          <div class="built-in-item"><span>日期</span><strong>2026/07/29 - 2026/07/30</strong></div>
-          <div class="built-in-item"><span>總分</span><strong>235.5</strong></div>
-          <div class="built-in-item"><span>國文</span><strong>56.5</strong></div>
-          <div class="built-in-item"><span>英文</span><strong>41</strong></div>
-          <div class="built-in-item"><span>數學 A</span><strong>73</strong></div>
-          <div class="built-in-item"><span>自然</span><strong>65</strong></div>
-          <div class="built-in-item"><span>社會</span><strong>0</strong></div>
-          <div class="built-in-item"><span>總級分</span><strong>40</strong></div>
-        </div>
-      </section>
-
-      <section class="panel form-panel score-only-panel">
-        <div class="panel-heading">
-          <h2>新增模擬考紀錄</h2>
-          <p>之後的新成績可以繼續加在這裡，資料會儲存在瀏覽器。</p>
-        </div>
-
-        <form id="score-form" class="score-form">
-          <div class="form-grid">
-            <label>
-              <span>考試名稱</span>
-              <input id="exam-name" name="examName" type="text" placeholder="例：第二次模擬考" required>
-            </label>
-
-            <label>
-              <span>考試日期</span>
-              <input id="exam-date" name="examDate" type="date" required>
-            </label>
-
-            <label>
-              <span>總分</span>
-              <input id="total-score" name="totalScore" type="number" min="0" max="500" step="0.1" placeholder="例如 378" required>
-            </label>
-
-            <label>
-              <span>國文</span>
-              <input id="chinese-score" name="chineseScore" type="number" min="0" max="100" step="0.1" required>
-            </label>
-
-            <label>
-              <span>英文</span>
-              <input id="english-score" name="englishScore" type="number" min="0" max="100" step="0.1" required>
-            </label>
-
-            <label>
-              <span>數學</span>
-              <input id="math-score" name="mathScore" type="number" min="0" max="100" step="0.1" required>
-            </label>
-
-            <label>
-              <span>社會</span>
-              <input id="social-score" name="socialScore" type="number" min="0" max="100" step="0.1" required>
-            </label>
-
-            <label>
-              <span>自然</span>
-              <input id="science-score" name="scienceScore" type="number" min="0" max="100" step="0.1" required>
-            </label>
-          </div>
-
-          <label>
-            <span>備註</span>
-            <textarea id="exam-notes" name="notes" rows="3" placeholder="可記錄這次失誤原因、讀書安排或進步重點"></textarea>
-          </label>
-
-          <div class="form-actions">
-            <button class="primary-btn" type="submit">新增紀錄</button>
-            <button id="reset-form-btn" class="ghost-btn" type="button">清空表單</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="stats-grid">
+      <section class="stats-grid summary-grid">
         <article class="panel stat-card">
           <p>目前筆數</p>
           <strong id="record-count">0</strong>
-          <span>已記錄的模擬考次數</span>
+          <span>已建立的模擬考紀錄</span>
         </article>
         <article class="panel stat-card">
           <p>平均總分</p>
           <strong id="average-score">0</strong>
-          <span>所有模擬考總分平均</span>
+          <span>歷次總分平均</span>
         </article>
         <article class="panel stat-card">
           <p>最高總分</p>
           <strong id="highest-score">0</strong>
-          <span>最佳表現</span>
+          <span>目前最佳成績</span>
         </article>
         <article class="panel stat-card">
           <p>最近進步</p>
           <strong id="score-delta">0</strong>
-          <span>與前一次相比的總分差</span>
+          <span id="score-delta-detail">與上一次相比</span>
+        </article>
+        <article class="panel stat-card highlight-card">
+          <p>距離目標</p>
+          <strong id="goal-gap-value">未設定</strong>
+          <span id="goal-gap-detail">先設定目標校系或級分</span>
         </article>
       </section>
 
-      <section class="panel chart-panel">
-        <div class="panel-heading">
-          <h2>總分成長曲線</h2>
-          <p>依照考試日期排序，觀察你的整體進步趨勢。</p>
-        </div>
-        <div class="chart-wrapper">
-          <svg id="trend-chart" viewBox="0 0 800 320" role="img" aria-label="模擬考總分成長曲線"></svg>
-          <div id="chart-empty" class="chart-empty">至少新增 1 筆成績後才會顯示圖表。</div>
-        </div>
+      <section class="insight-grid">
+        <article class="panel latest-panel">
+          <div class="panel-heading">
+            <h2>最新考試聚焦</h2>
+            <p id="latest-reference-text">自動抓取最近一次考試，與上一次或平均表現比較。</p>
+          </div>
+
+          <div class="latest-header">
+            <div>
+              <h3 id="latest-exam-title">尚無成績資料</h3>
+              <p id="latest-exam-meta" class="latest-meta">新增第一筆成績後，這裡會自動更新。</p>
+            </div>
+            <div id="latest-tag-list" class="tag-list"></div>
+          </div>
+
+          <div id="latest-insight-grid" class="latest-insight-grid"></div>
+        </article>
+
+        <aside class="panel goal-panel">
+          <div class="panel-heading">
+            <h2>目標設定模組</h2>
+            <p>設定第一志願、總級分或各科級分，系統會自動算差距。</p>
+          </div>
+
+          <form id="goal-form" class="goal-form">
+            <label>
+              <span>目標校系</span>
+              <input id="goal-name" name="goalName" type="text" placeholder="例：台大電機">
+            </label>
+
+            <div class="form-grid compact-grid">
+              <label>
+                <span>目標總分</span>
+                <input name="targetTotalScore" type="number" min="0" max="500" step="0.1" placeholder="例：280">
+              </label>
+              <label>
+                <span>目標總級分</span>
+                <input name="targetTotalGrade" type="number" min="0" max="75" step="1" placeholder="例：55">
+              </label>
+            </div>
+
+            <div class="form-grid compact-grid">
+              <label>
+                <span>國文目標級分</span>
+                <input name="targetChineseGrade" type="number" min="0" max="15" step="1">
+              </label>
+              <label>
+                <span>英文目標級分</span>
+                <input name="targetEnglishGrade" type="number" min="0" max="15" step="1">
+              </label>
+              <label>
+                <span>數 A 目標級分</span>
+                <input name="targetMathGrade" type="number" min="0" max="15" step="1">
+              </label>
+              <label>
+                <span>社會目標級分</span>
+                <input name="targetSocialGrade" type="number" min="0" max="15" step="1">
+              </label>
+              <label>
+                <span>自然目標級分</span>
+                <input name="targetScienceGrade" type="number" min="0" max="15" step="1">
+              </label>
+            </div>
+
+            <div class="form-actions">
+              <button class="primary-btn" type="submit">儲存目標</button>
+              <button id="reset-goal-btn" class="ghost-btn" type="button">清空目標</button>
+            </div>
+          </form>
+
+          <div id="goal-progress-list" class="goal-progress-list"></div>
+        </aside>
       </section>
 
-      <section class="panel subject-panel">
-        <div class="panel-heading">
-          <h2>科目統計</h2>
-          <p>比較各科平均與最近一次表現。</p>
-        </div>
-        <div id="subject-stats" class="subject-stats"></div>
+      <section class="analysis-grid">
+        <article class="panel chart-panel">
+          <div class="panel-heading chart-heading">
+            <div>
+              <h2>長期成長趨勢</h2>
+              <p>在總分與總級分之間切換，觀察哪個指標更穩定地成長。</p>
+            </div>
+            <div class="metric-switch" role="tablist" aria-label="趨勢圖指標">
+              <button class="metric-btn is-active" type="button" data-metric="totalScore">總分曲線</button>
+              <button class="metric-btn" type="button" data-metric="totalGrade">總級分曲線</button>
+            </div>
+          </div>
+
+          <div class="chart-wrapper">
+            <svg id="trend-chart" viewBox="0 0 800 320" role="img" aria-label="成績成長曲線"></svg>
+            <div id="trend-chart-empty" class="chart-empty">至少新增 1 筆有效資料後才會顯示圖表。</div>
+          </div>
+        </article>
+
+        <article class="panel radar-panel">
+          <div class="panel-heading">
+            <h2>各科戰力分佈</h2>
+            <p>以平均表現與最近一次表現疊圖，比較哪一科最需要補強。</p>
+          </div>
+
+          <div class="chart-wrapper radar-wrapper">
+            <svg id="radar-chart" viewBox="0 0 400 320" role="img" aria-label="各科戰力雷達圖"></svg>
+            <div id="radar-chart-empty" class="chart-empty">至少需要 1 筆含科目分數的紀錄。</div>
+          </div>
+
+          <div class="chart-legend">
+            <span><i class="legend-dot average-dot"></i>平均表現</span>
+            <span><i class="legend-dot latest-dot"></i>最近一次</span>
+          </div>
+        </article>
       </section>
 
       <section class="panel records-panel">
         <div class="panel-heading records-heading">
           <div>
-            <h2>歷次成績紀錄</h2>
-            <p>可以刪除單筆紀錄，表格、圖表與統計會同步更新。</p>
+            <h2>歷次紀錄與管理</h2>
+            <p>保留完整查詢表格，包含分數、級分、檢討標籤與備註。</p>
           </div>
           <button id="clear-records-btn" class="danger-btn" type="button">清空所有紀錄</button>
+        </div>
+
+        <div class="review-summary">
+          <h3>考後檢討標籤</h3>
+          <div id="review-tag-summary" class="tag-list muted-tags"></div>
         </div>
 
         <div class="table-wrap">
@@ -161,18 +187,20 @@
                 <th>日期</th>
                 <th>考試</th>
                 <th>總分</th>
+                <th>總級分</th>
                 <th>國文</th>
                 <th>英文</th>
-                <th>數學</th>
+                <th>數 A</th>
                 <th>社會</th>
                 <th>自然</th>
+                <th>標籤</th>
                 <th>備註</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody id="records-body">
               <tr class="empty-row">
-                <td colspan="10">目前還沒有任何模擬考紀錄。</td>
+                <td colspan="12">目前還沒有任何模擬考紀錄。</td>
               </tr>
             </tbody>
           </table>
@@ -181,19 +209,143 @@
     </main>
   </div>
 
+  <div id="score-modal" class="modal" hidden>
+    <div id="score-modal-backdrop" class="modal-backdrop"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="score-modal-title">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Add New Record</p>
+          <h2 id="score-modal-title">新增模擬考紀錄</h2>
+        </div>
+        <button id="close-score-modal-btn" class="icon-btn" type="button" aria-label="關閉新增成績視窗">×</button>
+      </div>
+
+      <form id="score-form" class="score-form modal-form">
+        <div class="form-grid">
+          <label>
+            <span>考試名稱</span>
+            <input name="examName" type="text" placeholder="例：第三次模擬考" required>
+          </label>
+
+          <label>
+            <span>考試日期</span>
+            <input name="examDate" type="date" required>
+          </label>
+
+          <label>
+            <span>總分</span>
+            <input name="totalScore" type="number" min="0" max="500" step="0.1" placeholder="例：278.5" required>
+          </label>
+
+          <label>
+            <span>總級分</span>
+            <input name="totalGrade" type="number" min="0" max="75" step="1" placeholder="可不填，系統會嘗試加總">
+          </label>
+        </div>
+
+        <div class="subject-entry-grid">
+          <article class="subject-entry-card">
+            <h3>國文</h3>
+            <label>
+              <span>分數</span>
+              <input name="chineseScore" type="number" min="0" max="100" step="0.1">
+            </label>
+            <label>
+              <span>級分</span>
+              <input name="chineseGrade" type="number" min="0" max="15" step="1">
+            </label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>英文</h3>
+            <label>
+              <span>分數</span>
+              <input name="englishScore" type="number" min="0" max="100" step="0.1">
+            </label>
+            <label>
+              <span>級分</span>
+              <input name="englishGrade" type="number" min="0" max="15" step="1">
+            </label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>數 A</h3>
+            <label>
+              <span>分數</span>
+              <input name="mathScore" type="number" min="0" max="100" step="0.1">
+            </label>
+            <label>
+              <span>級分</span>
+              <input name="mathGrade" type="number" min="0" max="15" step="1">
+            </label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>社會</h3>
+            <label>
+              <span>分數</span>
+              <input name="socialScore" type="number" min="0" max="100" step="0.1">
+            </label>
+            <label>
+              <span>級分</span>
+              <input name="socialGrade" type="number" min="0" max="15" step="1">
+            </label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>自然</h3>
+            <label>
+              <span>分數</span>
+              <input name="scienceScore" type="number" min="0" max="100" step="0.1">
+            </label>
+            <label>
+              <span>級分</span>
+              <input name="scienceGrade" type="number" min="0" max="15" step="1">
+            </label>
+          </article>
+        </div>
+
+        <label>
+          <span>失分原因標籤</span>
+          <input name="reviewTags" type="text" placeholder="例：#粗心 #觀念不熟 #寫不完">
+        </label>
+
+        <label>
+          <span>備註</span>
+          <textarea name="notes" rows="4" placeholder="可記錄這次失誤、策略、讀書狀況或臨場表現"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button class="primary-btn" type="submit">儲存成績</button>
+          <button id="reset-form-btn" class="ghost-btn" type="button">清空表單</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <template id="record-row-template">
     <tr>
       <td data-field="date"></td>
       <td data-field="name"></td>
-      <td data-field="total"></td>
+      <td data-field="totalScore"></td>
+      <td data-field="totalGrade"></td>
       <td data-field="chinese"></td>
       <td data-field="english"></td>
       <td data-field="math"></td>
       <td data-field="social"></td>
       <td data-field="science"></td>
+      <td data-field="tags"></td>
       <td data-field="notes"></td>
       <td><button class="table-delete-btn" type="button">刪除</button></td>
     </tr>
+  </template>
+
+  <template id="latest-card-template">
+    <article class="insight-card">
+      <div class="insight-card-top">
+        <p class="insight-card-title"></p>
+        <span class="delta-badge"></span>
+      </div>
+      <strong class="insight-card-value"></strong>
+      <p class="insight-card-detail"></p>
+      <span class="insight-card-caption"></span>
+    </article>
   </template>
 
   <script src="data.js"></script>
