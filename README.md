@@ -15,5 +15,6 @@
 
 ## 使用方式
 
-直接用瀏覽器開啟 [index.html](./index.html) 使用成績頁，
-再從頁面上方切換到 [countdown.html](./countdown.html) 查看考程倒數。
+直接用瀏覽器開啟 [index.html](./index.html) 進入首頁考程倒數，
+再從頁面上方切換到 [score.html](./score.html) 查看模擬考成績統計，
+或切換到 [english.html](./english.html) 記錄英文練習成績。

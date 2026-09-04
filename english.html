@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英文練習統計</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">English Practice Dashboard</p>
+        <h1>英文練習統計</h1>
+        <p class="hero-copy">分開追蹤妙妙卷與克漏字練習，並把詞彙題、綜合測驗、文意選填、篇章結構、閱讀題、混合題拆開分析。</p>
+      </div>
+
+      <div class="hero-actions">
+        <nav class="page-nav" aria-label="主要頁面">
+          <a class="nav-link" href="index.html">考程倒數</a>
+          <a class="nav-link" href="score.html">成績統計</a>
+          <a class="nav-link is-active" href="english.html">英文練習</a>
+        </nav>
+        <button id="open-english-modal-btn" class="primary-btn add-score-btn" type="button">＋ 新增英文成績</button>
+      </div>
+    </header>
+
+    <div id="english-status-message" class="status-message" hidden></div>
+
+    <main class="dashboard">
+      <section class="summary-grid english-summary-grid">
+        <article class="panel stat-card">
+          <p>總筆數</p>
+          <strong id="english-record-count">0</strong>
+          <span>所有英文練習紀錄</span>
+        </article>
+        <article class="panel stat-card">
+          <p>平均總分</p>
+          <strong id="english-average-score">0</strong>
+          <span>全體練習平均</span>
+        </article>
+        <article class="panel stat-card">
+          <p>最佳總分</p>
+          <strong id="english-highest-score">0</strong>
+          <span>目前最佳表現</span>
+        </article>
+        <article class="panel stat-card">
+          <p>妙妙卷平均</p>
+          <strong id="miaomiao-average-score">0</strong>
+          <span>妙妙卷練習平均</span>
+        </article>
+        <article class="panel stat-card highlight-card">
+          <p>克漏字平均</p>
+          <strong id="cloze-average-score">0</strong>
+          <span>克漏字練習平均</span>
+        </article>
+      </section>
+
+      <section class="insight-grid">
+        <article class="panel latest-panel">
+          <div class="panel-heading">
+            <h2>最新英文練習聚焦</h2>
+            <p id="english-latest-reference">最近一次練習會與同類型前一次或整體平均比較。</p>
+          </div>
+
+          <div class="latest-header">
+            <div>
+              <h3 id="english-latest-title">尚無英文練習紀錄</h3>
+              <p id="english-latest-meta" class="latest-meta">新增第一筆英文紀錄後，這裡會自動分析。</p>
+            </div>
+            <div id="english-type-badge" class="tag-list"></div>
+          </div>
+
+          <div id="english-insight-grid" class="latest-insight-grid"></div>
+        </article>
+
+        <aside class="panel goal-panel">
+          <div class="panel-heading">
+            <h2>題型分析摘要</h2>
+            <p>快速看出你目前最強、最弱以及不同練習類型的平均差異。</p>
+          </div>
+
+          <div id="english-type-summary" class="goal-progress-list"></div>
+          <div class="review-summary practice-summary-box">
+            <h3>題型結論</h3>
+            <div id="english-practice-findings" class="practice-findings"></div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="analysis-grid">
+        <article class="panel chart-panel">
+          <div class="panel-heading">
+            <h2>英文總分趨勢</h2>
+            <p>觀察妙妙卷與克漏字在不同日期的整體變化。</p>
+          </div>
+          <div class="chart-wrapper">
+            <svg id="english-trend-chart" viewBox="0 0 800 320" role="img" aria-label="英文練習總分趨勢圖"></svg>
+            <div id="english-trend-empty" class="chart-empty">至少新增 1 筆英文練習資料後才會顯示圖表。</div>
+          </div>
+        </article>
+
+        <article class="panel radar-panel">
+          <div class="panel-heading">
+            <h2>細分題型分析</h2>
+            <p>比較妙妙卷與克漏字在六種題型的平均分布。</p>
+          </div>
+          <div class="chart-wrapper">
+            <svg id="english-category-chart" viewBox="0 0 520 320" role="img" aria-label="英文細分題型比較圖"></svg>
+            <div id="english-category-empty" class="chart-empty">至少需要 1 筆英文紀錄才會顯示題型分析。</div>
+          </div>
+          <div class="chart-legend">
+            <span><i class="legend-dot average-dot"></i>妙妙卷平均</span>
+            <span><i class="legend-dot latest-dot"></i>克漏字平均</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel records-panel">
+        <div class="panel-heading records-heading">
+          <div>
+            <h2>英文練習紀錄</h2>
+            <p>保留每次練習的細分分數，方便你檢查是哪一種題型最不穩。</p>
+          </div>
+          <button id="clear-english-records-btn" class="danger-btn" type="button">清空英文紀錄</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>類型</th>
+                <th>名稱</th>
+                <th>總分</th>
+                <th>詞彙題</th>
+                <th>綜合測驗</th>
+                <th>文意選填</th>
+                <th>篇章結構</th>
+                <th>閱讀題</th>
+                <th>混合題</th>
+                <th>備註</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="english-records-body">
+              <tr class="empty-row">
+                <td colspan="12">目前還沒有英文練習紀錄。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="english-modal" class="modal" hidden>
+    <div id="english-modal-backdrop" class="modal-backdrop"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="english-modal-title">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Add English Practice</p>
+          <h2 id="english-modal-title">新增英文練習成績</h2>
+        </div>
+        <button id="close-english-modal-btn" class="icon-btn" type="button" aria-label="關閉英文練習視窗">×</button>
+      </div>
+
+      <form id="english-form" class="score-form modal-form">
+        <div class="form-grid">
+          <label>
+            <span>練習類型</span>
+            <select name="practiceType" required>
+              <option value="miaomiao">妙妙卷</option>
+              <option value="cloze">克漏字</option>
+            </select>
+          </label>
+          <label>
+            <span>練習日期</span>
+            <input name="practiceDate" type="date" required>
+          </label>
+          <label>
+            <span>練習名稱</span>
+            <input name="practiceName" type="text" placeholder="例：妙妙卷 week 3">
+          </label>
+          <label>
+            <span>總分</span>
+            <input name="totalScore" type="number" min="0" max="100" step="0.1" placeholder="可不填，系統自動加總">
+          </label>
+        </div>
+
+        <div class="subject-entry-grid english-entry-grid">
+          <article class="subject-entry-card">
+            <h3>詞彙題</h3>
+            <label><span>分數</span><input name="vocabularyScore" type="number" min="0" max="100" step="0.1"></label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>綜合測驗</h3>
+            <label><span>分數</span><input name="clozeScore" type="number" min="0" max="100" step="0.1"></label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>文意選填</h3>
+            <label><span>分數</span><input name="contextScore" type="number" min="0" max="100" step="0.1"></label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>篇章結構</h3>
+            <label><span>分數</span><input name="structureScore" type="number" min="0" max="100" step="0.1"></label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>閱讀題</h3>
+            <label><span>分數</span><input name="readingScore" type="number" min="0" max="100" step="0.1"></label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>混合題</h3>
+            <label><span>分數</span><input name="mixedScore" type="number" min="0" max="100" step="0.1"></label>
+          </article>
+        </div>
+
+        <label>
+          <span>備註</span>
+          <textarea name="notes" rows="4" placeholder="可記錄錯題原因、單字量、閱讀速度或練習心得"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button class="primary-btn" type="submit">儲存英文成績</button>
+          <button id="reset-english-form-btn" class="ghost-btn" type="button">清空表單</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <template id="english-record-row-template">
+    <tr>
+      <td data-field="date"></td>
+      <td data-field="type"></td>
+      <td data-field="name"></td>
+      <td data-field="total"></td>
+      <td data-field="vocabulary"></td>
+      <td data-field="cloze"></td>
+      <td data-field="context"></td>
+      <td data-field="structure"></td>
+      <td data-field="reading"></td>
+      <td data-field="mixed"></td>
+      <td data-field="notes"></td>
+      <td><button class="table-delete-btn" type="button">刪除</button></td>
+    </tr>
+  </template>
+
+  <template id="english-insight-card-template">
+    <article class="insight-card">
+      <div class="insight-card-top">
+        <p class="insight-card-title"></p>
+        <span class="delta-badge"></span>
+      </div>
+      <strong class="insight-card-value"></strong>
+      <p class="insight-card-detail"></p>
+      <span class="insight-card-caption"></span>
+    </article>
+  </template>
+
+  <script src="data.js"></script>
+  <script src="english.js"></script>
+</body>
+</html>

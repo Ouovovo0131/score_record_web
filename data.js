@@ -75,6 +75,7 @@ window.ScoreRecordApp = {
   STORAGE_KEYS: {
     records: "score-record-web.records",
     goals: "score-record-web.goals",
+    englishRecords: "score-record-web.english-records",
   },
   SUBJECTS: [
     { key: "chinese", label: "國文", shortLabel: "國", scoreKey: "chineseScore", gradeKey: "chineseGrade" },
@@ -122,6 +123,18 @@ window.ScoreRecordApp = {
     { id: "schedule-mock-4", name: "第四次模擬考", startDate: "2026-12-08", endDate: "2026-12-09" },
     { id: "schedule-final", name: "期末考", startDate: "2026-12-16", endDate: "2026-12-17" },
     { id: "schedule-gsat", name: "學測", startDate: "2027-01-22", endDate: "2027-01-24" },
+  ],
+  ENGLISH_PRACTICE_TYPES: [
+    { key: "miaomiao", label: "妙妙卷" },
+    { key: "cloze", label: "克漏字" },
+  ],
+  ENGLISH_CATEGORIES: [
+    { key: "vocabularyScore", label: "詞彙題" },
+    { key: "clozeScore", label: "綜合測驗" },
+    { key: "contextScore", label: "文意選填" },
+    { key: "structureScore", label: "篇章結構" },
+    { key: "readingScore", label: "閱讀題" },
+    { key: "mixedScore", label: "混合題" },
   ],
   average(values) {
     return values.reduce((sum, value) => sum + value, 0) / values.length;

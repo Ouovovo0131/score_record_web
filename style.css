@@ -16,8 +16,20 @@
   --radius: 20px;
 }
 
+.english-entry-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 * {
   box-sizing: border-box;
+}
+
+.english-summary-grid {
+  grid-column: 1 / -1;
+}
+
+.practice-summary-box {
+  margin-top: 14px;
 }
 
 body {
@@ -33,6 +45,7 @@ body.modal-open {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -337,6 +350,7 @@ label {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -349,6 +363,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(53, 99, 233, 0.12);
@@ -579,6 +594,16 @@ textarea {
   font-size: 0.9rem;
 }
 
+.practice-findings p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.practice-findings strong {
+  color: var(--text);
+}
+
 .muted-tag {
   background: rgba(93, 104, 128, 0.12);
   color: var(--muted);
@@ -766,6 +791,10 @@ tbody tr:hover {
   .latest-insight-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .english-entry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 980px) {
@@ -804,6 +833,7 @@ tbody tr:hover {
   .form-grid,
   .summary-grid,
   .subject-entry-grid,
+  .english-entry-grid,
   .latest-insight-grid,
   .countdown-grid {
     grid-template-columns: 1fr;
