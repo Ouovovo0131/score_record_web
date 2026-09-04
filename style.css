@@ -45,6 +45,31 @@ textarea {
   margin-bottom: 28px;
 }
 
+.page-nav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--primary);
+  background: rgba(53, 99, 233, 0.08);
+  border: 1px solid rgba(53, 99, 233, 0.12);
+  font-weight: 700;
+}
+
+.nav-link.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, #3563e9, #5e82f0);
+  border-color: transparent;
+}
+
 .eyebrow {
   margin: 0 0 6px;
   color: var(--primary);
@@ -115,6 +140,42 @@ textarea {
 
 .countdown-panel {
   grid-column: span 5;
+}
+
+.built-in-panel,
+.countdown-page-panel,
+.schedule-panel,
+.score-only-panel {
+  grid-column: 1 / -1;
+}
+
+.built-in-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.built-in-item {
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+}
+
+.built-in-item span,
+.built-in-item strong {
+  display: block;
+}
+
+.built-in-item span {
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.built-in-item strong {
+  color: var(--primary-dark);
+  font-size: 1.1rem;
 }
 
 .chart-panel,
@@ -304,6 +365,10 @@ textarea {
   font-weight: 600;
 }
 
+.schedule-item-static {
+  padding: 18px;
+}
+
 .stats-grid {
   grid-column: 1 / -1;
   display: grid;
@@ -448,6 +513,7 @@ tbody tr:hover {
     grid-column: 1 / -1;
   }
 
+  .built-in-grid,
   .stats-grid,
   .subject-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -463,6 +529,10 @@ tbody tr:hover {
   .hero,
   .records-heading {
     flex-direction: column;
+  }
+
+  .built-in-grid {
+    grid-template-columns: 1fr;
   }
 
   .schedule-item {

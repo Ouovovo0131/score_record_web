@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>模擬考成績追蹤</title>
+  <title>模擬考成績統計</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,28 +11,48 @@
     <header class="hero">
       <div>
         <p class="eyebrow">Score Record Dashboard</p>
-        <h1>模擬考成績追蹤站</h1>
+        <h1>模擬考成績統計</h1>
         <p class="hero-copy">
-          用純前端紀錄每次模擬考成績、設定下次考試倒數、查看統計數據與成長曲線。
+          專門用來記錄與分析模擬考成績；考程倒數已拆成獨立頁面。
         </p>
       </div>
-      <button id="load-demo-btn" class="secondary-btn" type="button">載入示範資料</button>
+      <nav class="page-nav" aria-label="主要頁面">
+        <a class="nav-link is-active" href="index.html">成績統計</a>
+        <a class="nav-link" href="countdown.html">考程倒數</a>
+      </nav>
     </header>
 
     <div id="status-message" class="status-message" hidden></div>
 
     <main class="dashboard">
-      <section class="panel form-panel">
+      <section class="panel built-in-panel">
+        <div class="panel-heading">
+          <h2>已寫入的一模成績</h2>
+          <p>程式已內建你的第一次模擬考資料，會當作初始紀錄顯示。</p>
+        </div>
+        <div class="built-in-grid">
+          <div class="built-in-item"><span>日期</span><strong>2026/07/29 - 2026/07/30</strong></div>
+          <div class="built-in-item"><span>總分</span><strong>235.5</strong></div>
+          <div class="built-in-item"><span>國文</span><strong>56.5</strong></div>
+          <div class="built-in-item"><span>英文</span><strong>41</strong></div>
+          <div class="built-in-item"><span>數學 A</span><strong>73</strong></div>
+          <div class="built-in-item"><span>自然</span><strong>65</strong></div>
+          <div class="built-in-item"><span>社會</span><strong>0</strong></div>
+          <div class="built-in-item"><span>總級分</span><strong>40</strong></div>
+        </div>
+      </section>
+
+      <section class="panel form-panel score-only-panel">
         <div class="panel-heading">
           <h2>新增模擬考紀錄</h2>
-          <p>資料會自動儲存在瀏覽器，不需要後端。</p>
+          <p>之後的新成績可以繼續加在這裡，資料會儲存在瀏覽器。</p>
         </div>
 
         <form id="score-form" class="score-form">
           <div class="form-grid">
             <label>
               <span>考試名稱</span>
-              <input id="exam-name" name="examName" type="text" placeholder="例：高三第一次模擬考" required>
+              <input id="exam-name" name="examName" type="text" placeholder="例：第二次模擬考" required>
             </label>
 
             <label>
@@ -47,33 +67,33 @@
 
             <label>
               <span>國文</span>
-              <input id="chinese-score" name="chineseScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+              <input id="chinese-score" name="chineseScore" type="number" min="0" max="100" step="0.1" required>
             </label>
 
             <label>
               <span>英文</span>
-              <input id="english-score" name="englishScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+              <input id="english-score" name="englishScore" type="number" min="0" max="100" step="0.1" required>
             </label>
 
             <label>
               <span>數學</span>
-              <input id="math-score" name="mathScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+              <input id="math-score" name="mathScore" type="number" min="0" max="100" step="0.1" required>
             </label>
 
             <label>
               <span>社會</span>
-              <input id="social-score" name="socialScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+              <input id="social-score" name="socialScore" type="number" min="0" max="100" step="0.1" required>
             </label>
 
             <label>
               <span>自然</span>
-              <input id="science-score" name="scienceScore" type="number" min="0" max="100" step="0.1" placeholder="0-100" required>
+              <input id="science-score" name="scienceScore" type="number" min="0" max="100" step="0.1" required>
             </label>
           </div>
 
           <label>
             <span>備註</span>
-            <textarea id="exam-notes" name="notes" rows="3" placeholder="可記錄失誤原因、讀書狀況或這次進步重點"></textarea>
+            <textarea id="exam-notes" name="notes" rows="3" placeholder="可記錄這次失誤原因、讀書安排或進步重點"></textarea>
           </label>
 
           <div class="form-actions">
@@ -81,50 +101,6 @@
             <button id="reset-form-btn" class="ghost-btn" type="button">清空表單</button>
           </div>
         </form>
-      </section>
-
-      <section class="panel countdown-panel">
-        <div class="panel-heading">
-          <h2>考試倒數與考程</h2>
-          <p>可以同時記錄多個考試日期，系統會自動抓出最近的一場進行倒數。</p>
-        </div>
-
-        <form id="countdown-form" class="countdown-form">
-          <label>
-            <span>考試名稱</span>
-            <input id="next-exam-name" type="text" placeholder="例：第三次模擬考">
-          </label>
-
-          <label>
-            <span>開始日期</span>
-            <input id="next-exam-start-date" type="date">
-          </label>
-
-          <label>
-            <span>結束日期（選填，不填視為單日）</span>
-            <input id="next-exam-end-date" type="date">
-          </label>
-
-          <div class="form-actions">
-            <button class="primary-btn" type="submit">新增考程</button>
-            <button id="clear-countdown-btn" class="ghost-btn" type="button">清空考程</button>
-          </div>
-        </form>
-
-        <div class="countdown-card">
-          <p id="countdown-title" class="countdown-title">尚未設定考試</p>
-          <div class="countdown-grid">
-            <div><strong id="days-left">--</strong><span>天</span></div>
-            <div><strong id="hours-left">--</strong><span>時</span></div>
-            <div><strong id="minutes-left">--</strong><span>分</span></div>
-            <div><strong id="seconds-left">--</strong><span>秒</span></div>
-          </div>
-          <p id="countdown-subtitle" class="countdown-subtitle">新增考程後就會顯示最近一場考試的倒數。</p>
-        </div>
-
-        <div id="schedule-list" class="schedule-list">
-          <div class="schedule-empty">目前還沒有任何考程。</div>
-        </div>
       </section>
 
       <section class="stats-grid">
@@ -153,7 +129,7 @@
       <section class="panel chart-panel">
         <div class="panel-heading">
           <h2>總分成長曲線</h2>
-          <p>依照考試日期排序，觀察整體趨勢。</p>
+          <p>依照考試日期排序，觀察你的整體進步趨勢。</p>
         </div>
         <div class="chart-wrapper">
           <svg id="trend-chart" viewBox="0 0 800 320" role="img" aria-label="模擬考總分成長曲線"></svg>
@@ -164,7 +140,7 @@
       <section class="panel subject-panel">
         <div class="panel-heading">
           <h2>科目統計</h2>
-          <p>比較各科平均，找出最穩定與最需要加強的科目。</p>
+          <p>比較各科平均與最近一次表現。</p>
         </div>
         <div id="subject-stats" class="subject-stats"></div>
       </section>
@@ -173,7 +149,7 @@
         <div class="panel-heading records-heading">
           <div>
             <h2>歷次成績紀錄</h2>
-            <p>支援刪除單筆紀錄，資料會同步更新圖表與統計。</p>
+            <p>可以刪除單筆紀錄，表格、圖表與統計會同步更新。</p>
           </div>
           <button id="clear-records-btn" class="danger-btn" type="button">清空所有紀錄</button>
         </div>
@@ -220,17 +196,7 @@
     </tr>
   </template>
 
-  <template id="schedule-item-template">
-    <article class="schedule-item">
-      <div class="schedule-item-main">
-        <p class="schedule-item-name"></p>
-        <p class="schedule-item-dates"></p>
-        <p class="schedule-item-status"></p>
-      </div>
-      <button class="table-delete-btn schedule-delete-btn" type="button">刪除</button>
-    </article>
-  </template>
-
+  <script src="data.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

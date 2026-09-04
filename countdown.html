@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>考程倒數</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Exam Schedule Countdown</p>
+        <h1>考程倒數</h1>
+        <p class="hero-copy">
+          這一頁只顯示目前固定的考程安排，會自動對最近一場尚未結束的考試倒數。
+        </p>
+      </div>
+      <nav class="page-nav" aria-label="主要頁面">
+        <a class="nav-link" href="index.html">成績統計</a>
+        <a class="nav-link is-active" href="countdown.html">考程倒數</a>
+      </nav>
+    </header>
+
+    <main class="dashboard countdown-dashboard">
+      <section class="panel countdown-page-panel">
+        <div class="panel-heading">
+          <h2>最近一場考試</h2>
+          <p>已結束的考試會保留在下方考程列表中。</p>
+        </div>
+
+        <div class="countdown-card countdown-page-card">
+          <p id="countdown-title" class="countdown-title">載入中</p>
+          <div class="countdown-grid">
+            <div><strong id="days-left">--</strong><span>天</span></div>
+            <div><strong id="hours-left">--</strong><span>時</span></div>
+            <div><strong id="minutes-left">--</strong><span>分</span></div>
+            <div><strong id="seconds-left">--</strong><span>秒</span></div>
+          </div>
+          <p id="countdown-subtitle" class="countdown-subtitle">請稍候。</p>
+        </div>
+      </section>
+
+      <section class="panel schedule-panel">
+        <div class="panel-heading">
+          <h2>固定考程列表</h2>
+          <p>目前只顯示你提供的考試，不提供新增或編輯功能。</p>
+        </div>
+        <div id="schedule-list" class="schedule-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <template id="schedule-item-template">
+    <article class="schedule-item schedule-item-static">
+      <div class="schedule-item-main">
+        <p class="schedule-item-name"></p>
+        <p class="schedule-item-dates"></p>
+        <p class="schedule-item-status"></p>
+      </div>
+    </article>
+  </template>
+
+  <script src="data.js"></script>
+  <script src="countdown.js"></script>
+</body>
+</html>

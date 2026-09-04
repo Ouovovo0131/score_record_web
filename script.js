@@ -1,37 +1,21 @@
-const STORAGE_KEYS = {
-  records: "score-record-web.records",
-  schedules: "score-record-web.schedules",
-  legacyCountdown: "score-record-web.countdown",
-};
-
-const SUBJECTS = [
-  { key: "chinese", label: "國文" },
-  { key: "english", label: "英文" },
-  { key: "math", label: "數學" },
-  { key: "social", label: "社會" },
-  { key: "science", label: "自然" },
-];
+const {
+  STORAGE_KEYS,
+  SUBJECTS,
+  DEFAULT_RECORDS,
+  average,
+  compactDate: formatCompactDate,
+  formatDate: formatDisplayDate,
+  formatScore: formatDisplayScore,
+} = window.ScoreRecordApp;
 
 const scoreForm = document.querySelector("#score-form");
-const countdownForm = document.querySelector("#countdown-form");
 const recordsBody = document.querySelector("#records-body");
 const rowTemplate = document.querySelector("#record-row-template");
-const scheduleTemplate = document.querySelector("#schedule-item-template");
-const loadDemoButton = document.querySelector("#load-demo-btn");
 const resetFormButton = document.querySelector("#reset-form-btn");
 const clearRecordsButton = document.querySelector("#clear-records-btn");
-const clearCountdownButton = document.querySelector("#clear-countdown-btn");
 const chart = document.querySelector("#trend-chart");
 const chartEmpty = document.querySelector("#chart-empty");
 const statusMessage = document.querySelector("#status-message");
-
-const countdownTitle = document.querySelector("#countdown-title");
-const countdownSubtitle = document.querySelector("#countdown-subtitle");
-const daysLeft = document.querySelector("#days-left");
-const hoursLeft = document.querySelector("#hours-left");
-const minutesLeft = document.querySelector("#minutes-left");
-const secondsLeft = document.querySelector("#seconds-left");
-const scheduleList = document.querySelector("#schedule-list");
 
 const statNodes = {
   recordCount: document.querySelector("#record-count"),
@@ -41,28 +25,16 @@ const statNodes = {
 };
 
 const subjectStatsContainer = document.querySelector("#subject-stats");
-const nextExamNameInput = document.querySelector("#next-exam-name");
-const nextExamStartDateInput = document.querySelector("#next-exam-start-date");
-const nextExamEndDateInput = document.querySelector("#next-exam-end-date");
-
-migrateLegacyCountdown();
 
 let records = loadRecords();
-let schedules = loadSchedules();
-let countdownTimerId = null;
 
 initialize();
 
 function initialize() {
   scoreForm.addEventListener("submit", handleAddRecord);
-  countdownForm.addEventListener("submit", handleAddSchedule);
-  loadDemoButton.addEventListener("click", handleLoadDemoData);
   resetFormButton.addEventListener("click", () => scoreForm.reset());
   clearRecordsButton.addEventListener("click", handleClearRecords);
-  clearCountdownButton.addEventListener("click", handleClearSchedules);
-
   renderAll();
-  startCountdownTimer();
 }
 
 function handleAddRecord(event) {
@@ -97,39 +69,6 @@ function handleAddRecord(event) {
   showStatus("已新增模擬考紀錄。", "success");
 }
 
-function handleAddSchedule(event) {
-  event.preventDefault();
-
-  const name = nextExamNameInput.value.trim();
-  const startDate = nextExamStartDateInput.value;
-  const endDate = nextExamEndDateInput.value || startDate;
-
-  if (!name || !startDate) {
-    window.alert("請先輸入考試名稱與開始日期。");
-    return;
-  }
-
-  if (new Date(endDate) < new Date(startDate)) {
-    window.alert("結束日期不能早於開始日期。");
-    return;
-  }
-
-  const nextSchedules = sortSchedules(schedules.concat({
-    id: crypto.randomUUID(),
-    name,
-    startDate,
-    endDate,
-  }));
-
-  if (!saveSchedules(nextSchedules)) {
-    return;
-  }
-
-  countdownForm.reset();
-  renderSchedules();
-  showStatus("已新增考試倒數。", "success");
-}
-
 function handleDeleteRecord(recordId) {
   const nextRecords = records.filter((record) => record.id !== recordId);
   if (!saveRecords(nextRecords)) {
@@ -140,23 +79,13 @@ function handleDeleteRecord(recordId) {
   showStatus("已刪除該筆成績紀錄。", "success");
 }
 
-function handleDeleteSchedule(scheduleId) {
-  const nextSchedules = schedules.filter((schedule) => schedule.id !== scheduleId);
-  if (!saveSchedules(nextSchedules)) {
-    return;
-  }
-
-  renderSchedules();
-  showStatus("已刪除該筆考程。", "success");
-}
-
 function handleClearRecords() {
   if (!records.length) {
     window.alert("目前沒有可清空的成績紀錄。");
     return;
   }
 
-  const confirmed = window.confirm("確定要刪除所有模擬考紀錄嗎？這個動作無法復原。");
+  const confirmed = window.confirm("確定要刪除所有模擬考紀錄嗎？這會包含目前內建的一模資料。");
   if (!confirmed) {
     return;
   }
@@ -169,96 +98,11 @@ function handleClearRecords() {
   showStatus("已清空所有模擬考紀錄。", "success");
 }
 
-function handleClearSchedules() {
-  if (!schedules.length) {
-    window.alert("目前沒有可清空的考程。");
-    return;
-  }
-
-  const confirmed = window.confirm("確定要清空所有考試倒數嗎？");
-  if (!confirmed) {
-    return;
-  }
-
-  if (!saveSchedules([])) {
-    return;
-  }
-
-  countdownForm.reset();
-  renderSchedules();
-  showStatus("已清空所有考程。", "success");
-}
-
-function handleLoadDemoData() {
-  if (records.length || schedules.length) {
-    const confirmed = window.confirm("載入示範資料會保留目前資料並一起顯示，是否繼續？");
-    if (!confirmed) {
-      return;
-    }
-  }
-
-  const demoRecords = [
-    {
-      id: crypto.randomUUID(),
-      examName: "高三第一次模擬考",
-      examDate: "2026-03-05",
-      totalScore: 332,
-      chinese: 61,
-      english: 64,
-      math: 58,
-      social: 72,
-      science: 77,
-      notes: "數學計算錯誤較多，需要再加強速度。",
-    },
-    {
-      id: crypto.randomUUID(),
-      examName: "高三第二次模擬考",
-      examDate: "2026-04-16",
-      totalScore: 351,
-      chinese: 66,
-      english: 68,
-      math: 62,
-      social: 75,
-      science: 80,
-      notes: "英文穩定上升，社會複習策略有效。",
-    },
-    {
-      id: crypto.randomUUID(),
-      examName: "高三第三次模擬考",
-      examDate: "2026-05-28",
-      totalScore: 376,
-      chinese: 70,
-      english: 74,
-      math: 68,
-      social: 79,
-      science: 85,
-      notes: "整體進步明顯，數學與自然成長最多。",
-    },
-  ];
-
-  const demoSchedules = [
-    { id: crypto.randomUUID(), name: "期中考", startDate: "2026-10-12", endDate: "2026-10-13" },
-    { id: crypto.randomUUID(), name: "第三次模擬考", startDate: "2026-10-28", endDate: "2026-10-29" },
-  ];
-
-  if (!saveRecords(sortRecords(records.concat(demoRecords)))) {
-    return;
-  }
-
-  if (!saveSchedules(sortSchedules(schedules.concat(demoSchedules)))) {
-    return;
-  }
-
-  renderAll();
-  showStatus("已載入示範資料。", "success");
-}
-
 function renderAll() {
   renderRecords();
   renderStats();
   renderSubjectStats();
   renderChart();
-  renderSchedules();
 }
 
 function renderRecords() {
@@ -273,14 +117,14 @@ function renderRecords() {
 
   records.forEach((record) => {
     const row = rowTemplate.content.firstElementChild.cloneNode(true);
-    row.querySelector('[data-field="date"]').textContent = formatDate(record.examDate);
+    row.querySelector('[data-field="date"]').textContent = formatDisplayDate(record.examDate);
     row.querySelector('[data-field="name"]').textContent = record.examName;
-    row.querySelector('[data-field="total"]').textContent = formatScore(record.totalScore);
-    row.querySelector('[data-field="chinese"]').textContent = formatScore(record.chinese);
-    row.querySelector('[data-field="english"]').textContent = formatScore(record.english);
-    row.querySelector('[data-field="math"]').textContent = formatScore(record.math);
-    row.querySelector('[data-field="social"]').textContent = formatScore(record.social);
-    row.querySelector('[data-field="science"]').textContent = formatScore(record.science);
+    row.querySelector('[data-field="total"]').textContent = formatDisplayScore(record.totalScore);
+    row.querySelector('[data-field="chinese"]').textContent = formatDisplayScore(record.chinese);
+    row.querySelector('[data-field="english"]').textContent = formatDisplayScore(record.english);
+    row.querySelector('[data-field="math"]').textContent = formatDisplayScore(record.math);
+    row.querySelector('[data-field="social"]').textContent = formatDisplayScore(record.social);
+    row.querySelector('[data-field="science"]').textContent = formatDisplayScore(record.science);
     row.querySelector('[data-field="notes"]').textContent = record.notes || "—";
     row.querySelector(".table-delete-btn").addEventListener("click", () => handleDeleteRecord(record.id));
     fragment.appendChild(row);
@@ -296,8 +140,8 @@ function renderStats() {
   const delta = latest && previous ? latest.totalScore - previous.totalScore : 0;
 
   statNodes.recordCount.textContent = String(records.length);
-  statNodes.averageScore.textContent = records.length ? formatScore(average(totals)) : "0";
-  statNodes.highestScore.textContent = records.length ? formatScore(Math.max(...totals)) : "0";
+  statNodes.averageScore.textContent = records.length ? formatDisplayScore(average(totals)) : "0";
+  statNodes.highestScore.textContent = records.length ? formatDisplayScore(Math.max(...totals)) : "0";
   statNodes.scoreDelta.textContent = formatSignedScore(delta);
   statNodes.scoreDelta.className = delta > 0 ? "positive" : delta < 0 ? "negative" : "";
 }
@@ -313,9 +157,9 @@ function renderSubjectStats() {
     card.className = "subject-card";
     card.innerHTML = `
       <h3>${subject.label}</h3>
-      <p>${scores.length ? formatScore(average(scores)) : "0"}</p>
+      <p>${scores.length ? formatDisplayScore(average(scores)) : "0"}</p>
       <span>平均分數</span>
-      <span>最近一次：${latestScore !== null ? formatScore(latestScore) : "—"}</span>
+      <span>最近一次：${latestScore !== null ? formatDisplayScore(latestScore) : "—"}</span>
     `;
     fragment.appendChild(card);
   });
@@ -387,7 +231,7 @@ function renderChart() {
       fill: "#5d6880",
       "font-size": "12",
       "text-anchor": "end",
-    }, formatScore(value));
+    }, formatDisplayScore(value));
   }
 
   appendSvgNode("polyline", {
@@ -416,7 +260,7 @@ function renderChart() {
       "font-size": "12",
       "font-weight": "700",
       "text-anchor": "middle",
-    }, formatScore(point.record.totalScore));
+    }, formatDisplayScore(point.record.totalScore));
 
     appendSvgNode("text", {
       x: point.x,
@@ -424,66 +268,8 @@ function renderChart() {
       fill: "#5d6880",
       "font-size": "12",
       "text-anchor": "middle",
-    }, compactDate(point.record.examDate));
+    }, formatCompactDate(point.record.examDate));
   });
-}
-
-function renderSchedules() {
-  renderCountdownSummary();
-  renderScheduleList();
-}
-
-function renderCountdownSummary() {
-  const primarySchedule = getPrimarySchedule();
-  if (!primarySchedule) {
-    countdownTitle.textContent = "尚未設定考試";
-    countdownSubtitle.textContent = "新增考程後就會顯示最近一場考試的倒數。";
-    setCountdownValues("--", "--", "--", "--");
-    return;
-  }
-
-  const scheduleState = getScheduleState(primarySchedule, new Date());
-  if (scheduleState.phase === "active") {
-    countdownTitle.textContent = `${primarySchedule.name} 進行中`;
-    countdownSubtitle.textContent = `${formatScheduleRange(primarySchedule)} · 第 ${scheduleState.currentDay} / ${scheduleState.totalDays} 天`;
-    setCountdownFromMs(scheduleState.diffMs);
-    return;
-  }
-
-  if (scheduleState.phase === "completed") {
-    countdownTitle.textContent = `${primarySchedule.name} 已結束`;
-    countdownSubtitle.textContent = formatScheduleRange(primarySchedule);
-    setCountdownValues("0", "0", "0", "0");
-    return;
-  }
-
-  countdownTitle.textContent = `${primarySchedule.name} 倒數`;
-  countdownSubtitle.textContent = formatScheduleRange(primarySchedule);
-  setCountdownFromMs(scheduleState.diffMs);
-}
-
-function renderScheduleList() {
-  scheduleList.innerHTML = "";
-
-  if (!schedules.length) {
-    scheduleList.innerHTML = '<div class="schedule-empty">目前還沒有任何考程。</div>';
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  const now = new Date();
-
-  schedules.forEach((schedule) => {
-    const node = scheduleTemplate.content.firstElementChild.cloneNode(true);
-    const state = getScheduleState(schedule, now);
-    node.querySelector(".schedule-item-name").textContent = schedule.name;
-    node.querySelector(".schedule-item-dates").textContent = formatScheduleRange(schedule);
-    node.querySelector(".schedule-item-status").textContent = formatScheduleStatus(state);
-    node.querySelector(".schedule-delete-btn").addEventListener("click", () => handleDeleteSchedule(schedule.id));
-    fragment.appendChild(node);
-  });
-
-  scheduleList.appendChild(fragment);
 }
 
 function appendSvgNode(tagName, attributes, textContent = "") {
@@ -495,29 +281,24 @@ function appendSvgNode(tagName, attributes, textContent = "") {
   chart.appendChild(node);
 }
 
-function setCountdownFromMs(diffMs) {
-  const safeMs = Math.max(diffMs, 0);
-  const totalSeconds = Math.floor(safeMs / 1000);
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  setCountdownValues(String(days), padTime(hours), padTime(minutes), padTime(seconds));
-}
-
-function setCountdownValues(days, hours, minutes, seconds) {
-  daysLeft.textContent = days;
-  hoursLeft.textContent = hours;
-  minutesLeft.textContent = minutes;
-  secondsLeft.textContent = seconds;
-}
-
-function startCountdownTimer() {
-  if (countdownTimerId !== null) {
-    window.clearInterval(countdownTimerId);
+function loadRecords() {
+  const raw = localStorage.getItem(STORAGE_KEYS.records);
+  if (!raw) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(DEFAULT_RECORDS));
+    } catch (error) {
+      reportStorageError("成績資料無法初始化到瀏覽器。", error);
+    }
+    return sortRecords(DEFAULT_RECORDS);
   }
 
-  countdownTimerId = window.setInterval(renderSchedules, 1000);
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? mergeDefaultRecords(parsed.filter(isStoredRecord)) : sortRecords(DEFAULT_RECORDS);
+  } catch (error) {
+    reportStorageError("已儲存的成績資料格式錯誤，請重新建立紀錄。", error);
+    return sortRecords(DEFAULT_RECORDS);
+  }
 }
 
 function saveRecords(nextRecords) {
@@ -531,156 +312,24 @@ function saveRecords(nextRecords) {
   }
 }
 
-function saveSchedules(nextSchedules) {
-  try {
-    localStorage.setItem(STORAGE_KEYS.schedules, JSON.stringify(nextSchedules));
-    schedules = nextSchedules;
-    return true;
-  } catch (error) {
-    reportStorageError("考程資料無法儲存到瀏覽器。", error);
-    return false;
-  }
-}
-
-function loadRecords() {
-  const raw = localStorage.getItem(STORAGE_KEYS.records);
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? sortRecords(parsed.filter(isStoredRecord)) : [];
-  } catch (error) {
-    reportStorageError("已儲存的成績資料格式錯誤，請重新建立紀錄。", error);
-    return [];
-  }
-}
-
-function loadSchedules() {
-  const raw = localStorage.getItem(STORAGE_KEYS.schedules);
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? sortSchedules(parsed.filter(isStoredSchedule)) : [];
-  } catch (error) {
-    reportStorageError("已儲存的考程資料格式錯誤，請重新設定。", error);
-    return [];
-  }
-}
-
-function migrateLegacyCountdown() {
-  const schedulesRaw = localStorage.getItem(STORAGE_KEYS.schedules);
-  const legacyRaw = localStorage.getItem(STORAGE_KEYS.legacyCountdown);
-  if (schedulesRaw || !legacyRaw) {
-    return;
-  }
-
-  try {
-    const parsed = JSON.parse(legacyRaw);
-    if (parsed && typeof parsed.name === "string" && typeof parsed.dateTime === "string") {
-      const startDate = parsed.dateTime.slice(0, 10);
-      localStorage.setItem(STORAGE_KEYS.schedules, JSON.stringify([{
-        id: crypto.randomUUID(),
-        name: parsed.name,
-        startDate,
-        endDate: startDate,
-      }]));
-    }
-  } catch (error) {
-    console.error("舊版倒數資料轉換失敗。", error);
-  }
-
-  localStorage.removeItem(STORAGE_KEYS.legacyCountdown);
-}
-
 function sortRecords(sourceRecords) {
   return [...sourceRecords].sort((left, right) => new Date(left.examDate) - new Date(right.examDate));
 }
 
-function sortSchedules(sourceSchedules) {
-  return [...sourceSchedules].sort((left, right) => new Date(left.startDate) - new Date(right.startDate));
-}
+function mergeDefaultRecords(sourceRecords) {
+  const mergedRecords = [...sourceRecords];
 
-function getPrimarySchedule() {
-  const now = new Date();
-  return schedules.find((schedule) => {
-    const state = getScheduleState(schedule, now);
-    return state.phase === "active";
-  }) || schedules.find((schedule) => {
-    const state = getScheduleState(schedule, now);
-    return state.phase === "upcoming";
-  }) || schedules.at(-1) || null;
-}
+  DEFAULT_RECORDS.forEach((defaultRecord) => {
+    const exists = mergedRecords.some((record) => (
+      record.id === defaultRecord.id
+      || (record.examName === defaultRecord.examName && record.examDate === defaultRecord.examDate)
+    ));
+    if (!exists) {
+      mergedRecords.unshift(defaultRecord);
+    }
+  });
 
-function getScheduleState(schedule, now) {
-  const start = parseStartDate(schedule.startDate);
-  const end = parseEndDate(schedule.endDate || schedule.startDate);
-
-  if (now < start) {
-    return {
-      phase: "upcoming",
-      diffMs: start.getTime() - now.getTime(),
-      start,
-      end,
-    };
-  }
-
-  if (now <= end) {
-    const totalDays = Math.floor((stripTime(end).getTime() - stripTime(start).getTime()) / 86400000) + 1;
-    const currentDay = Math.floor((stripTime(now).getTime() - stripTime(start).getTime()) / 86400000) + 1;
-    return {
-      phase: "active",
-      diffMs: end.getTime() - now.getTime(),
-      totalDays,
-      currentDay,
-      start,
-      end,
-    };
-  }
-
-  return {
-    phase: "completed",
-    diffMs: 0,
-    start,
-    end,
-  };
-}
-
-function formatScheduleStatus(state) {
-  if (state.phase === "upcoming") {
-    return `距離開始還有 ${formatDurationShort(state.diffMs)}`;
-  }
-
-  if (state.phase === "active") {
-    return `考試進行中，第 ${state.currentDay} / ${state.totalDays} 天`;
-  }
-
-  return "已結束";
-}
-
-function formatScheduleRange(schedule) {
-  const startLabel = formatDate(schedule.startDate);
-  const endValue = schedule.endDate || schedule.startDate;
-  if (endValue === schedule.startDate) {
-    return startLabel;
-  }
-  return `${startLabel} - ${formatDate(endValue)}`;
-}
-
-function parseStartDate(dateString) {
-  return new Date(`${dateString}T00:00:00`);
-}
-
-function parseEndDate(dateString) {
-  return new Date(`${dateString}T23:59:59`);
-}
-
-function stripTime(date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return sortRecords(mergedRecords);
 }
 
 function isValidRecord(record) {
@@ -701,64 +350,15 @@ function isStoredRecord(record) {
     SUBJECTS.every((subject) => Number.isFinite(Number(record[subject.key])));
 }
 
-function isStoredSchedule(schedule) {
-  return schedule &&
-    typeof schedule.id === "string" &&
-    typeof schedule.name === "string" &&
-    typeof schedule.startDate === "string" &&
-    typeof schedule.endDate === "string";
-}
-
-function average(values) {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
 function toNumber(value) {
   return Number(value);
 }
 
-function formatScore(value) {
-  return Number(value).toFixed(Number.isInteger(Number(value)) ? 0 : 1);
-}
-
 function formatSignedScore(value) {
   if (value > 0) {
-    return `+${formatScore(value)}`;
+    return `+${formatDisplayScore(value)}`;
   }
-  return formatScore(value);
-}
-
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  return Number.isNaN(date.getTime())
-    ? dateString
-    : new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-}
-
-function compactDate(dateString) {
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) {
-    return dateString;
-  }
-
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${month}/${day}`;
-}
-
-function formatDurationShort(diffMs) {
-  const totalSeconds = Math.floor(Math.max(diffMs, 0) / 1000);
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  if (days > 0) {
-    return `${days} 天 ${hours} 小時`;
-  }
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  return `${hours} 小時 ${minutes} 分`;
-}
-
-function padTime(value) {
-  return String(value).padStart(2, "0");
+  return formatDisplayScore(value);
 }
 
 function showStatus(message, type) {
