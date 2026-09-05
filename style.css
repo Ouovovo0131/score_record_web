@@ -1,19 +1,25 @@
 :root {
   color-scheme: light;
-  --bg: #f3f7ff;
+  --bg: #eef5ff;
+  --bg-strong: #dfeaff;
   --panel: #ffffff;
-  --panel-soft: #eef4ff;
-  --line: #d9e3f4;
-  --line-strong: #c4d5f8;
-  --text: #1d2433;
-  --muted: #5d6880;
-  --primary: #3563e9;
-  --primary-dark: #2648ac;
-  --success: #1e9d68;
-  --danger: #d14545;
-  --warning: #f39c12;
-  --shadow: 0 18px 40px rgba(28, 52, 105, 0.08);
-  --radius: 20px;
+  --panel-soft: #f3f7ff;
+  --panel-elevated: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(245,249,255,0.96));
+  --line: #d7e1f6;
+  --line-strong: #bfd3ff;
+  --text: #1c2333;
+  --muted: #5f6d86;
+  --primary: #2f5ae9;
+  --primary-strong: #2246bd;
+  --primary-glow: rgba(47, 90, 233, 0.14);
+  --success: #1c9d6a;
+  --success-soft: rgba(28, 157, 106, 0.12);
+  --danger: #d94d4d;
+  --danger-soft: rgba(217, 77, 77, 0.12);
+  --warning: #e8a13d;
+  --shadow: 0 18px 40px rgba(24, 43, 93, 0.10);
+  --shadow-strong: 0 26px 60px rgba(29, 44, 91, 0.18);
+  --radius: 22px;
 }
 
 .english-entry-grid {
@@ -35,8 +41,19 @@
 body {
   margin: 0;
   font-family: "Segoe UI", "Noto Sans TC", Arial, sans-serif;
-  background: linear-gradient(180deg, #eef4ff 0%, #f9fbff 100%);
+  background:
+    radial-gradient(circle at top left, rgba(100, 117, 255, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(36, 190, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, #edf5ff 0%, #f8fbff 100%);
   color: var(--text);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.18), transparent 24%, rgba(113, 142, 255, 0.08) 100%);
 }
 
 body.modal-open {
@@ -62,6 +79,11 @@ textarea {
   gap: 24px;
   align-items: flex-start;
   margin-bottom: 24px;
+  padding: 22px 26px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(32, 63, 179, 0.96), rgba(66, 104, 225, 0.88), rgba(108, 132, 255, 0.82));
+  box-shadow: var(--shadow-strong);
+  color: #fff;
 }
 
 .hero-actions {
@@ -84,16 +106,23 @@ textarea {
   padding: 11px 18px;
   border-radius: 999px;
   text-decoration: none;
-  color: var(--primary);
-  background: rgba(53, 99, 233, 0.08);
-  border: 1px solid rgba(53, 99, 233, 0.12);
+  color: #eaf0ff;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
   font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.18);
 }
 
 .nav-link.is-active {
-  color: #fff;
-  background: linear-gradient(135deg, #3563e9, #5e82f0);
+  color: var(--primary-strong);
+  background: linear-gradient(135deg, #ffffff, #edf4ff);
   border-color: transparent;
+  box-shadow: 0 8px 20px rgba(255,255,255,0.2);
 }
 
 .eyebrow {
@@ -124,11 +153,23 @@ textarea {
 }
 
 .panel {
-  background: var(--panel);
-  border: 1px solid rgba(217, 227, 244, 0.9);
+  background: var(--panel-elevated);
+  border: 1px solid rgba(192, 212, 255, 0.9);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 22px;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: -30% auto auto -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(92, 123, 255, 0.08), transparent 65%);
+  pointer-events: none;
 }
 
 .panel-heading h2,
@@ -181,6 +222,17 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 18px 18px 16px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(242,247,255,0.96));
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 24px rgba(35, 62, 122, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(31, 58, 120, 0.08);
 }
 
 .stat-card p,
@@ -191,10 +243,11 @@ textarea {
 
 .stat-card strong {
   font-size: clamp(1.7rem, 3vw, 2.5rem);
+  letter-spacing: -0.04em;
 }
 
 .highlight-card {
-  background: linear-gradient(135deg, #f3f7ff, #ffffff);
+  background: linear-gradient(135deg, #edf4ff, #ffffff 48%, #f5f7ff);
   border-color: #bfd0f5;
 }
 
@@ -244,7 +297,8 @@ textarea {
   padding: 16px;
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
 }
 
 .insight-card-top {
@@ -447,8 +501,9 @@ textarea {
 .goal-progress-item {
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: #f8fbff;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
   padding: 14px 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
 }
 
 .goal-progress-item span,
@@ -492,11 +547,12 @@ textarea {
 .chart-wrapper {
   position: relative;
   margin-top: 18px;
-  background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+  background: linear-gradient(180deg, #fbfdff 0%, #f3f8ff 100%);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   min-height: 320px;
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
 }
 
 #trend-chart,
@@ -622,10 +678,12 @@ table {
   width: 100%;
   min-width: 1180px;
   border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 18px;
 }
 
 thead th {
-  background: #f6f8fd;
+  background: linear-gradient(180deg, #f5f8ff 0%, #edf4ff 100%);
   color: var(--muted);
   font-weight: 700;
   text-align: left;
@@ -639,8 +697,12 @@ tbody td {
   vertical-align: top;
 }
 
+tbody tr:nth-child(even) {
+  background: rgba(245, 249, 255, 0.6);
+}
+
 tbody tr:hover {
-  background: #fbfdff;
+  background: rgba(233, 240, 255, 0.8);
 }
 
 .empty-row td {
@@ -673,10 +735,11 @@ tbody tr:hover {
   width: min(1040px, calc(100% - 24px));
   max-height: calc(100vh - 36px);
   overflow: auto;
-  background: #fff;
-  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff, #f6f9ff);
+  border-radius: 26px;
   box-shadow: 0 30px 80px rgba(15, 23, 42, 0.24);
   padding: 24px;
+  border: 1px solid rgba(202, 220, 255, 0.8);
 }
 
 .modal-header {
