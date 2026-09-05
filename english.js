@@ -165,43 +165,29 @@ function renderEnglishLatestInsight() {
     englishLatestNodes.title.textContent = "尚無英文練習紀錄";
     englishLatestNodes.meta.textContent = "新增第一筆英文紀錄後，這裡會自動分析。";
     englishLatestNodes.reference.textContent = "目前沒有可比較的英文練習資料。";
-    englishLatestNodes.cards.innerHTML = '<div class="empty-state">新增英文成績後，這裡會顯示總分與各題型的比較分析。</div>';
+    englishLatestNodes.cards.innerHTML = '<div class="empty-state">新增英文成績後，這裡會顯示各題型成長趨勢與長期平均比較。</div>';
     return;
   }
 
   const typeLabel = getPracticeTypeLabel(latest.practiceType);
   const baseline = getPreviousSameTypeRecord(latest) || getPreviousEnglishRecord(latest);
 
-  englishLatestNodes.title.textContent = latest.practiceName || `${typeLabel} 練習`;
-  englishLatestNodes.meta.textContent = `${formatDisplayDate(latest.practiceDate)} · ${typeLabel} · 總分 ${formatMaybeNumber(latest.totalScore)}`;
+  englishLatestNodes.title.textContent = `各題型成長趨勢`;
+  englishLatestNodes.meta.textContent = `${formatDisplayDate(latest.practiceDate)} · ${typeLabel} · 依各題型長期趨勢分析`;
   englishLatestNodes.reference.textContent = baseline
-    ? `以下箭頭優先與前一次 ${getPracticeTypeLabel(baseline.practiceType)} 練習比較。`
-    : "目前只有 1 筆紀錄，以下以整體平均作為比較基準。";
+    ? `以下以每個題型的長期走勢為主，並比較最新一次是否高於或低於長期平均。`
+    : "目前只有 1 筆紀錄，以下以該題型整體平均作為比較基準。";
   englishLatestNodes.typeBadge.appendChild(createTag(typeLabel));
 
   const fragment = document.createDocumentFragment();
-  fragment.appendChild(createEnglishInsightCard({
-    title: "總分",
-    value: formatMaybeNumber(latest.totalScore),
-    detail: `類型：${typeLabel}`,
-    comparison: buildEnglishComparison(latest.totalScore, baseline ? baseline.totalScore : average(getFiniteValues(englishRecords.map((record) => record.totalScore)))),
-  }));
 
   ENGLISH_CATEGORIES.forEach((category) => {
-    const baselineValue = getLatestInsightBaseline(latest, baseline, category);
-    const miaomiaoOnly = isMiaomiaoOnlyCategory(category.key);
-
+    const summary = getCategoryTrendSummary(category.key);
     fragment.appendChild(createEnglishInsightCard({
       title: category.label,
-      value: formatEnglishCategoryValue(latest, category.key),
-      detail: isUnavailableCategory(latest.practiceType, category.key)
-        ? `${typeLabel} 不含此題型`
-        : miaomiaoOnly
-          ? "僅統計妙妙卷"
-          : `${typeLabel} 最近一次`,
-      comparison: isUnavailableCategory(latest.practiceType, category.key)
-        ? { icon: "-", tone: "neutral", label: "此練習類型不適用" }
-        : buildEnglishComparison(latest[category.key], baselineValue),
+      value: summary.value,
+      detail: summary.detail,
+      comparison: summary.comparison,
     }));
   });
 
@@ -690,6 +676,62 @@ function getCategoryRateByType(categoryKey, practiceType) {
     return null;
   }
   return getCategoryAverageRate(categoryKey, practiceType);
+}
+
+function getCategoryTrendSummary(categoryKey) {
+  const latestRecord = getLatestEnglishRecord();
+  if (!latestRecord) {
+    return {
+      value: "—",
+      detail: "尚無資料",
+      comparison: { icon: "•", tone: "neutral", label: "還沒有可比較的題型資料" },
+    };
+  }
+
+  if (isUnavailableCategory(latestRecord.practiceType, categoryKey)) {
+    return {
+      value: "-",
+      detail: "不適用此題型",
+      comparison: { icon: "-", tone: "neutral", label: "此練習類型不適用" },
+    };
+  }
+
+  const values = getCategoryValues(categoryKey);
+  if (!values.length) {
+    return {
+      value: "—",
+      detail: "尚無長期趨勢",
+      comparison: { icon: "•", tone: "neutral", label: "目前沒有足夠資料" },
+    };
+  }
+
+  const latestValue = latestRecord[categoryKey];
+  if (!Number.isFinite(latestValue)) {
+    return {
+      value: "-",
+      detail: "尚無最新分數",
+      comparison: { icon: "•", tone: "neutral", label: "最新一次沒有此題型資料" },
+    };
+  }
+
+  const firstValue = values[0];
+  const averageValue = average(values);
+  const direction = latestValue > firstValue ? "上升" : latestValue < firstValue ? "下降" : "持平";
+  const diffFromAverage = latestValue - averageValue;
+
+  return {
+    value: formatMaybeNumber(latestValue),
+    detail: `長期趨勢：${direction}`,
+    comparison: {
+      icon: diffFromAverage > 0 ? "▲" : diffFromAverage < 0 ? "▼" : "•",
+      tone: diffFromAverage > 0 ? "positive" : diffFromAverage < 0 ? "negative" : "neutral",
+      label: diffFromAverage > 0
+        ? `最新較長期平均高 ${formatDisplayScore(diffFromAverage)} 分`
+        : diffFromAverage < 0
+          ? `最新較長期平均低 ${formatDisplayScore(Math.abs(diffFromAverage))} 分`
+          : "最新與長期平均持平",
+    },
+  };
 }
 
 function createTag(text) {
