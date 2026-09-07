@@ -11,10 +11,20 @@
 - 顯示最近一次考試洞察、長期趨勢圖、各科戰力雷達圖
 - 支援目標校系 / 目標級分設定與檢討標籤統計
 - 以獨立頁面顯示固定考程倒數，對最近一場考試即時倒數
-- 使用瀏覽器 `localStorage` 儲存資料，不需要後端
+- 使用 Firebase Firestore 儲存資料（若未設定 Firebase，會暫時退回瀏覽器本機資料）
 
 ## 使用方式
 
 直接用瀏覽器開啟 [index.html](./index.html) 進入首頁考程倒數，
 再從頁面上方切換到 [score.html](./score.html) 查看模擬考成績統計，
 或切換到 [english.html](./english.html) 記錄英文練習成績。
+
+## Firestore 設定
+
+1. 在 Firebase 建立專案並啟用 Firestore Database。
+2. 編輯 [firebase-config.js](./firebase-config.js)，把 `REPLACE_WITH_...` 全部替換成你的 Firebase Web 設定值。
+3. 重新整理頁面後，資料會改由 Firestore 讀寫。
+
+### 既有資料搬移
+
+- 如果 Firestore 對應欄位尚未有資料，系統會自動把瀏覽器目前的舊資料搬到 Firestore（包含模擬考與英文練習紀錄）。

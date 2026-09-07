@@ -71,6 +71,96 @@ function formatScheduleRange(schedule) {
   return `${startLabel} - ${formatDate(endValue)}`;
 }
 
+const FIREBASE_CONFIG = window.SCORE_RECORD_FIREBASE_CONFIG || null;
+const FIRESTORE_COLLECTION = "score_record_web";
+const FIRESTORE_DOCUMENT = "dashboard_data";
+let firestoreRefPromise = null;
+
+function hasValidFirebaseConfig(config) {
+  if (!config || typeof config !== "object") {
+    return false;
+  }
+
+  const requiredKeys = ["apiKey", "authDomain", "projectId", "appId"];
+  return requiredKeys.every((key) => {
+    const value = config[key];
+    return typeof value === "string" && value.trim() && !value.startsWith("REPLACE_");
+  });
+}
+
+function isFirestoreEnabled() {
+  return hasValidFirebaseConfig(FIREBASE_CONFIG);
+}
+
+function getFirestoreRef() {
+  if (!isFirestoreEnabled()) {
+    return Promise.resolve(null);
+  }
+
+  if (!firestoreRefPromise) {
+    firestoreRefPromise = Promise.resolve().then(() => {
+      if (!window.firebase || typeof window.firebase.initializeApp !== "function") {
+        throw new Error("Firebase SDK 尚未載入，請確認 HTML 已引入 firebase-app-compat.js 與 firebase-firestore-compat.js。");
+      }
+
+      const app = window.firebase.apps && window.firebase.apps.length
+        ? window.firebase.app()
+        : window.firebase.initializeApp(FIREBASE_CONFIG);
+      return app.firestore().collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT);
+    });
+  }
+
+  return firestoreRefPromise;
+}
+
+function readLocalJson(key) {
+  const raw = localStorage.getItem(key);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`${key} 的本機資料格式錯誤：${error.message}`);
+  }
+}
+
+function writeLocalJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+async function readStoredValue(key) {
+  if (!isFirestoreEnabled()) {
+    return readLocalJson(key);
+  }
+
+  const docRef = await getFirestoreRef();
+  const snapshot = await docRef.get();
+  const remoteData = snapshot.exists ? snapshot.data() : {};
+
+  if (Object.prototype.hasOwnProperty.call(remoteData, key)) {
+    writeLocalJson(key, remoteData[key]);
+    return remoteData[key];
+  }
+
+  const localValue = readLocalJson(key);
+  if (localValue !== null) {
+    await docRef.set({ [key]: localValue }, { merge: true });
+    return localValue;
+  }
+
+  return null;
+}
+
+async function writeStoredValue(key, value) {
+  if (isFirestoreEnabled()) {
+    const docRef = await getFirestoreRef();
+    await docRef.set({ [key]: value }, { merge: true });
+  }
+  writeLocalJson(key, value);
+}
+
 window.ScoreRecordApp = {
   STORAGE_KEYS: {
     records: "score-record-web.records",
@@ -153,6 +243,9 @@ window.ScoreRecordApp = {
   stripTime,
   getScheduleState,
   formatScheduleRange,
+  isFirestoreEnabled,
+  readStoredValue,
+  writeStoredValue,
   formatDurationShort(diffMs) {
     const totalSeconds = Math.floor(Math.max(diffMs, 0) / 1000);
     const days = Math.floor(totalSeconds / 86400);

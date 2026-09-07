@@ -3,6 +3,8 @@ const {
   ENGLISH_PRACTICE_TYPES,
   ENGLISH_UNAVAILABLE_CATEGORY_MAP,
   ENGLISH_CATEGORIES,
+  readStoredValue,
+  writeStoredValue,
   average,
   compactDate: formatCompactDate,
   formatDate: formatDisplayDate,
@@ -44,11 +46,15 @@ const englishLatestNodes = {
   typeBadge: document.querySelector("#english-type-badge"),
 };
 
-let englishRecords = loadEnglishRecords();
+let englishRecords = [];
 
-initializeEnglishPage();
+initializeEnglishPage().catch((error) => {
+  reportEnglishStorageError("初始化英文資料失敗，請檢查 Firestore 設定。", error);
+});
 
-function initializeEnglishPage() {
+async function initializeEnglishPage() {
+  englishRecords = await loadEnglishRecords();
+
   openEnglishModalButton.addEventListener("click", openEnglishModal);
   closeEnglishModalButton.addEventListener("click", closeEnglishModal);
   englishModalBackdrop.addEventListener("click", closeEnglishModal);
@@ -67,7 +73,7 @@ function handleEnglishKeydown(event) {
   }
 }
 
-function handleAddEnglishRecord(event) {
+async function handleAddEnglishRecord(event) {
   event.preventDefault();
 
   const formData = new FormData(englishForm);
@@ -98,7 +104,7 @@ function handleAddEnglishRecord(event) {
   }
 
   const nextRecords = sortEnglishRecords(englishRecords.concat(record));
-  if (!saveEnglishRecords(nextRecords)) {
+  if (!(await saveEnglishRecords(nextRecords))) {
     return;
   }
 
@@ -108,9 +114,9 @@ function handleAddEnglishRecord(event) {
   showEnglishStatus("已新增英文練習紀錄。", "success");
 }
 
-function handleDeleteEnglishRecord(recordId) {
+async function handleDeleteEnglishRecord(recordId) {
   const nextRecords = englishRecords.filter((record) => record.id !== recordId);
-  if (!saveEnglishRecords(nextRecords)) {
+  if (!(await saveEnglishRecords(nextRecords))) {
     return;
   }
 
@@ -118,7 +124,7 @@ function handleDeleteEnglishRecord(recordId) {
   showEnglishStatus("已刪除該筆英文紀錄。", "success");
 }
 
-function handleClearEnglishRecords() {
+async function handleClearEnglishRecords() {
   if (!englishRecords.length) {
     window.alert("目前沒有可清空的英文紀錄。");
     return;
@@ -129,7 +135,7 @@ function handleClearEnglishRecords() {
     return;
   }
 
-  if (!saveEnglishRecords([])) {
+  if (!(await saveEnglishRecords([]))) {
     return;
   }
 
@@ -476,28 +482,34 @@ function renderEnglishTable() {
   englishRecordsBody.appendChild(fragment);
 }
 
-function loadEnglishRecords() {
-  const raw = localStorage.getItem(STORAGE_KEYS.englishRecords);
-  if (!raw) {
+async function loadEnglishRecords() {
+  let stored;
+  try {
+    stored = await readStoredValue(STORAGE_KEYS.englishRecords);
+  } catch (error) {
+    reportEnglishStorageError("讀取英文練習資料失敗。", error);
+    return [];
+  }
+
+  if (stored === null || stored === undefined) {
     return [];
   }
 
   try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? sortEnglishRecords(parsed.map(normalizeEnglishRecord).filter(Boolean)) : [];
+    return Array.isArray(stored) ? sortEnglishRecords(stored.map(normalizeEnglishRecord).filter(Boolean)) : [];
   } catch (error) {
     reportEnglishStorageError("已儲存的英文練習資料格式錯誤，請重新建立紀錄。", error);
     return [];
   }
 }
 
-function saveEnglishRecords(nextRecords) {
+async function saveEnglishRecords(nextRecords) {
   try {
-    localStorage.setItem(STORAGE_KEYS.englishRecords, JSON.stringify(nextRecords));
+    await writeStoredValue(STORAGE_KEYS.englishRecords, nextRecords);
     englishRecords = nextRecords;
     return true;
   } catch (error) {
-    reportEnglishStorageError("英文練習資料無法儲存到瀏覽器。", error);
+    reportEnglishStorageError("英文練習資料無法儲存到 Firestore。", error);
     return false;
   }
 }

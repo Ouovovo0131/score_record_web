@@ -3,6 +3,8 @@ const {
   SUBJECTS,
   DEFAULT_RECORDS,
   DEFAULT_GOALS,
+  readStoredValue,
+  writeStoredValue,
   average,
   compactDate: formatCompactDate,
   formatDate: formatDisplayDate,
@@ -51,12 +53,17 @@ const goalProgressList = document.querySelector("#goal-progress-list");
 const reviewTagSummary = document.querySelector("#review-tag-summary");
 
 let activeMetric = "totalScore";
-let records = loadRecords();
-let goals = loadGoals();
+let records = [];
+let goals = { ...DEFAULT_GOALS };
 
-initialize();
+initialize().catch((error) => {
+  reportStorageError("初始化資料失敗，請檢查 Firestore 設定。", error);
+});
 
-function initialize() {
+async function initialize() {
+  records = await loadRecords();
+  goals = await loadGoals();
+
   openScoreModalButton.addEventListener("click", openScoreModal);
   closeScoreModalButton.addEventListener("click", closeScoreModal);
   modalBackdrop.addEventListener("click", closeScoreModal);
@@ -93,7 +100,7 @@ function handleGlobalKeydown(event) {
   }
 }
 
-function handleAddRecord(event) {
+async function handleAddRecord(event) {
   event.preventDefault();
 
   const formData = new FormData(scoreForm);
@@ -127,7 +134,7 @@ function handleAddRecord(event) {
   }
 
   const nextRecords = sortRecords(records.concat(nextRecord));
-  if (!saveRecords(nextRecords)) {
+  if (!(await saveRecords(nextRecords))) {
     return;
   }
 
@@ -137,7 +144,7 @@ function handleAddRecord(event) {
   showStatus("已新增模擬考紀錄。", "success");
 }
 
-function handleSaveGoals(event) {
+async function handleSaveGoals(event) {
   event.preventDefault();
 
   const formData = new FormData(goalForm);
@@ -152,7 +159,7 @@ function handleSaveGoals(event) {
     targetScienceGrade: toOptionalInteger(formData.get("targetScienceGrade")),
   };
 
-  if (!saveGoals(nextGoals)) {
+  if (!(await saveGoals(nextGoals))) {
     return;
   }
 
@@ -160,8 +167,8 @@ function handleSaveGoals(event) {
   showStatus("已更新目標設定。", "success");
 }
 
-function handleResetGoals() {
-  if (!saveGoals({ ...DEFAULT_GOALS })) {
+async function handleResetGoals() {
+  if (!(await saveGoals({ ...DEFAULT_GOALS }))) {
     return;
   }
 
@@ -170,9 +177,9 @@ function handleResetGoals() {
   showStatus("已清空目標設定。", "success");
 }
 
-function handleDeleteRecord(recordId) {
+async function handleDeleteRecord(recordId) {
   const nextRecords = records.filter((record) => record.id !== recordId);
-  if (!saveRecords(nextRecords)) {
+  if (!(await saveRecords(nextRecords))) {
     return;
   }
 
@@ -180,7 +187,7 @@ function handleDeleteRecord(recordId) {
   showStatus("已刪除該筆成績紀錄。", "success");
 }
 
-function handleClearRecords() {
+async function handleClearRecords() {
   if (!records.length) {
     window.alert("目前沒有可清空的成績紀錄。");
     return;
@@ -191,7 +198,7 @@ function handleClearRecords() {
     return;
   }
 
-  if (!saveRecords([])) {
+  if (!(await saveRecords([]))) {
     return;
   }
 
@@ -626,20 +633,26 @@ function setGoalFieldValue(fieldName, value) {
   }
 }
 
-function loadRecords() {
-  const raw = localStorage.getItem(STORAGE_KEYS.records);
+async function loadRecords() {
   const fallbackRecords = DEFAULT_RECORDS.map(cloneRecord);
+  let stored;
 
-  if (!raw) {
-    tryPersist(STORAGE_KEYS.records, fallbackRecords, "成績資料無法初始化到瀏覽器。");
+  try {
+    stored = await readStoredValue(STORAGE_KEYS.records);
+  } catch (error) {
+    reportStorageError("讀取成績資料失敗，已回退到內建資料。", error);
+    return sortRecords(fallbackRecords);
+  }
+
+  if (stored === null || stored === undefined) {
+    await tryPersist(STORAGE_KEYS.records, fallbackRecords, "成績資料無法初始化到儲存空間。");
     return sortRecords(fallbackRecords);
   }
 
   try {
-    const parsed = JSON.parse(raw);
-    const normalized = Array.isArray(parsed) ? parsed.map(normalizeRecord).filter(Boolean) : [];
+    const normalized = Array.isArray(stored) ? stored.map(normalizeRecord).filter(Boolean) : [];
     const merged = mergeDefaultRecords(normalized);
-    tryPersist(STORAGE_KEYS.records, merged, "成績資料無法更新到新版格式。");
+    await tryPersist(STORAGE_KEYS.records, merged, "成績資料無法更新到新版格式。");
     return sortRecords(merged);
   } catch (error) {
     reportStorageError("已儲存的成績資料格式錯誤，已回退到內建資料。", error);
@@ -647,38 +660,38 @@ function loadRecords() {
   }
 }
 
-function loadGoals() {
+async function loadGoals() {
   const fixedGoals = { ...DEFAULT_GOALS };
-  tryPersist(STORAGE_KEYS.goals, fixedGoals, "固定目標設定無法同步到瀏覽器。");
+  await tryPersist(STORAGE_KEYS.goals, fixedGoals, "固定目標設定無法同步到儲存空間。");
   return fixedGoals;
 }
 
-function saveRecords(nextRecords) {
+async function saveRecords(nextRecords) {
   try {
-    localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(nextRecords));
+    await writeStoredValue(STORAGE_KEYS.records, nextRecords);
     records = nextRecords;
     return true;
   } catch (error) {
-    reportStorageError("成績資料無法儲存到瀏覽器。", error);
+    reportStorageError("成績資料無法儲存到 Firestore。", error);
     return false;
   }
 }
 
-function saveGoals(nextGoals) {
+async function saveGoals(nextGoals) {
   try {
-    localStorage.setItem(STORAGE_KEYS.goals, JSON.stringify(nextGoals));
+    await writeStoredValue(STORAGE_KEYS.goals, nextGoals);
     goals = { ...DEFAULT_GOALS, ...nextGoals };
     syncGoalForm();
     return true;
   } catch (error) {
-    reportStorageError("目標設定無法儲存到瀏覽器。", error);
+    reportStorageError("目標設定無法儲存到 Firestore。", error);
     return false;
   }
 }
 
-function tryPersist(key, value, errorMessage) {
+async function tryPersist(key, value, errorMessage) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    await writeStoredValue(key, value);
   } catch (error) {
     reportStorageError(errorMessage, error);
   }
