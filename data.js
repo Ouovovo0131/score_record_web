@@ -135,28 +135,37 @@ async function readStoredValue(key) {
     return readLocalJson(key);
   }
 
-  const docRef = await getFirestoreRef();
-  const snapshot = await docRef.get();
-  const remoteData = snapshot.exists ? snapshot.data() : {};
+  try {
+    const docRef = await getFirestoreRef();
+    const snapshot = await docRef.get();
+    const remoteData = snapshot.exists ? snapshot.data() : {};
 
-  if (Object.prototype.hasOwnProperty.call(remoteData, key)) {
-    writeLocalJson(key, remoteData[key]);
-    return remoteData[key];
+    if (Object.prototype.hasOwnProperty.call(remoteData, key)) {
+      writeLocalJson(key, remoteData[key]);
+      return remoteData[key];
+    }
+
+    const localValue = readLocalJson(key);
+    if (localValue !== null) {
+      await docRef.set({ [key]: localValue }, { merge: true });
+      return localValue;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Firestore 讀取失敗，改用本機資料。", error);
+    return readLocalJson(key);
   }
-
-  const localValue = readLocalJson(key);
-  if (localValue !== null) {
-    await docRef.set({ [key]: localValue }, { merge: true });
-    return localValue;
-  }
-
-  return null;
 }
 
 async function writeStoredValue(key, value) {
   if (isFirestoreEnabled()) {
-    const docRef = await getFirestoreRef();
-    await docRef.set({ [key]: value }, { merge: true });
+    try {
+      const docRef = await getFirestoreRef();
+      await docRef.set({ [key]: value }, { merge: true });
+    } catch (error) {
+      console.error("Firestore 寫入失敗，僅儲存到本機。", error);
+    }
   }
   writeLocalJson(key, value);
 }
@@ -188,10 +197,10 @@ window.ScoreRecordApp = {
       mathScore: 73,
       mathGrade: 12,
       socialScore: 0,
-      socialGrade: null,
+      socialGrade: 0,
       scienceScore: 65,
       scienceGrade: 9,
-      reviewTags: ["#一模", "#自然組"],
+      reviewTags: ["#第一次考", "#沒讀完範圍"],
       notes: "班排 12/30、校排 75/200、總排 13085/39781",
     },
   ],
@@ -229,6 +238,190 @@ window.ScoreRecordApp = {
     { key: "structureScore", label: "篇章結構", maxScore: 8 },
     { key: "readingScore", label: "閱讀題", maxScore: 24 },
     { key: "mixedScore", label: "混合題", maxScore: 10 },
+  ],
+  DEFAULT_ENGLISH_RECORDS: [
+    {
+      id: "eng-2026-07-01-miaomiao-1",
+      practiceType: "miaomiao",
+      practiceDate: "2026-07-01",
+      practiceName: "妙一",
+      totalScore: 29,
+      vocabularyScore: 6,
+      clozeScore: 6,
+      contextScore: 3,
+      structureScore: 6,
+      readingScore: 6,
+      mixedScore: 2,
+      notes: "第一次寫題本",
+    },
+    {
+      id: "eng-2026-07-08-miaomiao-2",
+      practiceType: "miaomiao",
+      practiceDate: "2026-07-08",
+      practiceName: "妙二",
+      totalScore: 35,
+      vocabularyScore: 3,
+      clozeScore: 5,
+      contextScore: 3,
+      structureScore: 4,
+      readingScore: 20,
+      mixedScore: 0,
+      notes: "",
+    },
+    {
+      id: "eng-2026-07-15-miaomiao-3",
+      practiceType: "miaomiao",
+      practiceDate: "2026-07-15",
+      practiceName: "妙三",
+      totalScore: 28.4,
+      vocabularyScore: 4,
+      clozeScore: 6,
+      contextScore: 2,
+      structureScore: 2,
+      readingScore: 8,
+      mixedScore: 6.4,
+      notes: "",
+    },
+    {
+      id: "eng-2026-07-19-miaomiao-4",
+      practiceType: "miaomiao",
+      practiceDate: "2026-07-19",
+      practiceName: "妙四",
+      totalScore: 21,
+      vocabularyScore: 5,
+      clozeScore: 6,
+      contextScore: 4,
+      structureScore: 0,
+      readingScore: 6,
+      mixedScore: 0,
+      notes: "沒寫完",
+    },
+    {
+      id: "eng-2026-07-22-miaomiao-5",
+      practiceType: "miaomiao",
+      practiceDate: "2026-07-22",
+      practiceName: "妙五",
+      totalScore: 31,
+      vocabularyScore: 4,
+      clozeScore: 5,
+      contextScore: 2,
+      structureScore: 8,
+      readingScore: 12,
+      mixedScore: 0,
+      notes: "有意識到英文的程度真的不足",
+    },
+    {
+      id: "eng-2026-07-25-miaomiao-6",
+      practiceType: "miaomiao",
+      practiceDate: "2026-07-25",
+      practiceName: "妙六",
+      totalScore: 29,
+      vocabularyScore: 6,
+      clozeScore: 4,
+      contextScore: 3,
+      structureScore: 8,
+      readingScore: 8,
+      mixedScore: 0,
+      notes: "詞彙量有提升，但還是不夠用",
+    },
+    {
+      id: "eng-2026-08-01-cloze-1",
+      practiceType: "cloze",
+      practiceDate: "2026-08-01",
+      practiceName: "新新世代第一回",
+      totalScore: 20,
+      vocabularyScore: null,
+      clozeScore: 7,
+      contextScore: 5,
+      structureScore: 8,
+      readingScore: null,
+      mixedScore: null,
+      notes: "寫起來還有點順",
+    },
+    {
+      id: "eng-2026-08-08-cloze-2",
+      practiceType: "cloze",
+      practiceDate: "2026-08-08",
+      practiceName: "新新世代第二回",
+      totalScore: 22,
+      vocabularyScore: null,
+      clozeScore: 6,
+      contextScore: 8,
+      structureScore: 8,
+      readingScore: null,
+      mixedScore: null,
+      notes: "",
+    },
+    {
+      id: "eng-2026-08-19-cloze-3",
+      practiceType: "cloze",
+      practiceDate: "2026-08-19",
+      practiceName: "新新世代第三回",
+      totalScore: 12,
+      vocabularyScore: null,
+      clozeScore: 4,
+      contextScore: 4,
+      structureScore: 4,
+      readingScore: null,
+      mixedScore: null,
+      notes: "",
+    },
+    {
+      id: "eng-2026-08-22-cloze-4",
+      practiceType: "cloze",
+      practiceDate: "2026-08-22",
+      practiceName: "新新世代第四回",
+      totalScore: 14,
+      vocabularyScore: null,
+      clozeScore: 4,
+      contextScore: 4,
+      structureScore: 6,
+      readingScore: null,
+      mixedScore: null,
+      notes: "",
+    },
+    {
+      id: "eng-2026-08-30-cloze-5",
+      practiceType: "cloze",
+      practiceDate: "2026-08-30",
+      practiceName: "人生哲理 第一回",
+      totalScore: 20,
+      vocabularyScore: null,
+      clozeScore: 6,
+      contextScore: 10,
+      structureScore: 4,
+      readingScore: null,
+      mixedScore: null,
+      notes: "",
+    },
+    {
+      id: "eng-2026-09-06-miaomiao-10",
+      practiceType: "miaomiao",
+      practiceDate: "2026-09-06",
+      practiceName: "妙妙卷 第十回",
+      totalScore: 51,
+      vocabularyScore: 8,
+      clozeScore: 4,
+      contextScore: 5,
+      structureScore: 8,
+      readingScore: 20,
+      mixedScore: 6,
+      notes: "",
+    },
+    {
+      id: "eng-2026-09-07-cloze-6",
+      practiceType: "cloze",
+      practiceDate: "2026-09-07",
+      practiceName: "人生哲理 第二回",
+      totalScore: 20,
+      vocabularyScore: null,
+      clozeScore: 5,
+      contextScore: 7,
+      structureScore: 8,
+      readingScore: null,
+      mixedScore: null,
+      notes: "速度適中、單字量有增加",
+    },
   ],
   average(values) {
     return values.reduce((sum, value) => sum + value, 0) / values.length;

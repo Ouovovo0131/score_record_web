@@ -3,8 +3,8 @@ const {
   SUBJECTS,
   DEFAULT_RECORDS,
   DEFAULT_GOALS,
-  readStoredValue,
-  writeStoredValue,
+  readStoredValue: readAppStoredValue,
+  writeStoredValue: writeAppStoredValue,
   average,
   compactDate: formatCompactDate,
   formatDate: formatDisplayDate,
@@ -638,7 +638,7 @@ async function loadRecords() {
   let stored;
 
   try {
-    stored = await readStoredValue(STORAGE_KEYS.records);
+    stored = await readAppStoredValue(STORAGE_KEYS.records);
   } catch (error) {
     reportStorageError("讀取成績資料失敗，已回退到內建資料。", error);
     return sortRecords(fallbackRecords);
@@ -668,7 +668,7 @@ async function loadGoals() {
 
 async function saveRecords(nextRecords) {
   try {
-    await writeStoredValue(STORAGE_KEYS.records, nextRecords);
+    await writeAppStoredValue(STORAGE_KEYS.records, nextRecords);
     records = nextRecords;
     return true;
   } catch (error) {
@@ -679,7 +679,7 @@ async function saveRecords(nextRecords) {
 
 async function saveGoals(nextGoals) {
   try {
-    await writeStoredValue(STORAGE_KEYS.goals, nextGoals);
+    await writeAppStoredValue(STORAGE_KEYS.goals, nextGoals);
     goals = { ...DEFAULT_GOALS, ...nextGoals };
     syncGoalForm();
     return true;
@@ -691,7 +691,7 @@ async function saveGoals(nextGoals) {
 
 async function tryPersist(key, value, errorMessage) {
   try {
-    await writeStoredValue(key, value);
+    await writeAppStoredValue(key, value);
   } catch (error) {
     reportStorageError(errorMessage, error);
   }

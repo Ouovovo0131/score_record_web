@@ -3,8 +3,9 @@ const {
   ENGLISH_PRACTICE_TYPES,
   ENGLISH_UNAVAILABLE_CATEGORY_MAP,
   ENGLISH_CATEGORIES,
-  readStoredValue,
-  writeStoredValue,
+  DEFAULT_ENGLISH_RECORDS,
+  readStoredValue: readAppStoredValue,
+  writeStoredValue: writeAppStoredValue,
   average,
   compactDate: formatCompactDate,
   formatDate: formatDisplayDate,
@@ -483,34 +484,47 @@ function renderEnglishTable() {
 }
 
 async function loadEnglishRecords() {
+  const fallbackRecords = DEFAULT_ENGLISH_RECORDS.map(cloneEnglishRecord);
   let stored;
   try {
-    stored = await readStoredValue(STORAGE_KEYS.englishRecords);
+    stored = await readAppStoredValue(STORAGE_KEYS.englishRecords);
   } catch (error) {
     reportEnglishStorageError("讀取英文練習資料失敗。", error);
-    return [];
+    return sortEnglishRecords(fallbackRecords);
   }
 
   if (stored === null || stored === undefined) {
-    return [];
+    await tryPersistEnglishRecords(fallbackRecords, "英文練習資料無法初始化到儲存空間。");
+    return sortEnglishRecords(fallbackRecords);
   }
 
   try {
-    return Array.isArray(stored) ? sortEnglishRecords(stored.map(normalizeEnglishRecord).filter(Boolean)) : [];
+    const normalized = Array.isArray(stored) ? stored.map(normalizeEnglishRecord).filter(Boolean) : [];
+    const merged = mergeDefaultEnglishRecords(normalized);
+    await tryPersistEnglishRecords(merged, "英文練習資料無法更新到新版格式。");
+    return sortEnglishRecords(merged);
   } catch (error) {
     reportEnglishStorageError("已儲存的英文練習資料格式錯誤，請重新建立紀錄。", error);
-    return [];
+    return sortEnglishRecords(fallbackRecords);
   }
 }
 
 async function saveEnglishRecords(nextRecords) {
   try {
-    await writeStoredValue(STORAGE_KEYS.englishRecords, nextRecords);
+    await writeAppStoredValue(STORAGE_KEYS.englishRecords, nextRecords);
     englishRecords = nextRecords;
     return true;
   } catch (error) {
     reportEnglishStorageError("英文練習資料無法儲存到 Firestore。", error);
     return false;
+  }
+}
+
+async function tryPersistEnglishRecords(nextRecords, errorMessage) {
+  try {
+    await writeAppStoredValue(STORAGE_KEYS.englishRecords, nextRecords);
+  } catch (error) {
+    reportEnglishStorageError(errorMessage, error);
   }
 }
 
@@ -541,6 +555,53 @@ function normalizeEnglishRecord(record) {
   }
 
   return isValidEnglishRecord(normalized) ? normalized : null;
+}
+
+function mergeDefaultEnglishRecords(sourceRecords) {
+  const merged = [...sourceRecords];
+  DEFAULT_ENGLISH_RECORDS.forEach((defaultRecord) => {
+    const normalizedDefault = normalizeEnglishRecord(defaultRecord);
+    if (!normalizedDefault) {
+      return;
+    }
+
+    const existingIndex = merged.findIndex((record) => (
+      record.id === normalizedDefault.id
+      || (
+        record.practiceType === normalizedDefault.practiceType
+        && record.practiceDate === normalizedDefault.practiceDate
+        && record.practiceName === normalizedDefault.practiceName
+      )
+    ));
+
+    if (existingIndex >= 0) {
+      merged[existingIndex] = mergeEnglishRecord(normalizedDefault, merged[existingIndex]);
+    } else {
+      merged.push(cloneEnglishRecord(normalizedDefault));
+    }
+  });
+
+  return sortEnglishRecords(merged);
+}
+
+function mergeEnglishRecord(defaultRecord, storedRecord) {
+  const merged = { ...defaultRecord, ...storedRecord };
+  ENGLISH_CATEGORIES.forEach((category) => {
+    const storedValue = storedRecord[category.key];
+    merged[category.key] = Number.isFinite(storedValue) || storedValue === null
+      ? storedValue
+      : defaultRecord[category.key];
+  });
+
+  merged.totalScore = Number.isFinite(storedRecord.totalScore) ? storedRecord.totalScore : defaultRecord.totalScore;
+  merged.notes = typeof storedRecord.notes === "string" && storedRecord.notes.trim()
+    ? storedRecord.notes.trim()
+    : defaultRecord.notes;
+  return merged;
+}
+
+function cloneEnglishRecord(record) {
+  return JSON.parse(JSON.stringify(record));
 }
 
 function sortEnglishRecords(recordsToSort) {
