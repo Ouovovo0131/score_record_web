@@ -1,0 +1,75 @@
+// Prisma schema for the exam-tracking dashboard.
+// Uses Vercel Postgres (Neon-backed). Set POSTGRES_URL in .env.local / Vercel project settings.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+// A single mock-exam record. userEmail is stored for future multi-user support
+// even though this is currently a single-user personal app.
+model ExamRecord {
+  id            String   @id @default(cuid())
+  userEmail     String
+  examName      String
+  examDate      DateTime
+  totalScore    Float
+  totalGrade    Float?
+  chineseScore  Float?
+  chineseGrade  Float?
+  englishScore  Float?
+  englishGrade  Float?
+  mathScore     Float?
+  mathGrade     Float?
+  socialScore   Float?
+  socialGrade   Float?
+  scienceScore  Float?
+  scienceGrade  Float?
+  reviewTags    Json     @default("[]")
+  notes         String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userEmail])
+}
+
+// A single English practice record (妙妙卷 / 克漏字). Category scores are
+// nullable because 克漏字 does not have vocabulary/reading/mixed categories.
+model EnglishRecord {
+  id               String   @id @default(cuid())
+  userEmail        String
+  practiceType     String
+  practiceDate     DateTime
+  practiceName     String
+  totalScore        Float?
+  vocabularyScore   Float?
+  clozeScore        Float?
+  contextScore      Float?
+  structureScore    Float?
+  readingScore      Float?
+  mixedScore        Float?
+  notes             String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userEmail])
+}
+
+// Single-row-per-user goal configuration.
+model Goal {
+  id                    String   @id @default(cuid())
+  userEmail             String   @unique
+  goalName              String
+  targetTotalGrade      Float?
+  targetChineseGrade    Float?
+  targetEnglishGrade    Float?
+  targetMathGrade       Float?
+  targetScienceGrade    Float?
+  targetSocialGrade     Float?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
