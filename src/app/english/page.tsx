@@ -148,10 +148,6 @@ function EnglishPageContent() {
   const typePredictions = new Map(
     trendSeries.map((series) => [series.key, predictNextValue(series.points.map((p) => p.value))])
   );
-  // Tracks how many data points backed each type's prediction, so we can
-  // flag predictions based on a single point (predictNextValue's "last
-  // score" fallback) as a weaker, non-regression estimate.
-  const typePointCounts = new Map(trendSeries.map((series) => [series.key, series.points.length]));
   const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
   const trendYAxisMin = 0;
   const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
@@ -162,30 +158,30 @@ function EnglishPageContent() {
       const perTypePredictions = ENGLISH_PRACTICE_TYPES.map((type) => ({
         type,
         prediction: typePredictions.get(type.key) ?? null,
-        isWeakBasis: (typePointCounts.get(type.key) ?? 0) < 2,
       }));
       if (perTypePredictions.every(({ prediction }) => prediction == null)) return null;
-      // Flag the total as "partial/approximate" both when a type has no
-      // history at all (missing from the sum) and when a type only has a
-      // single data point, since that prediction is a last-score fallback
-      // rather than an actual regression estimate.
-      const isPartial = perTypePredictions.some(({ prediction, isWeakBasis }) => prediction == null || isWeakBasis);
-      const total = perTypePredictions.reduce((sum, { prediction }) => sum + (prediction ?? 0), 0);
+      // Missing data (a type with no history at all) and a weak single-point
+      // basis (predictNextValue's last-score fallback) are distinct
+      // situations, so they get distinct label wording rather than being
+      // conflated into one generic "partial" flag.
+      const hasMissingType = perTypePredictions.some(({ prediction }) => prediction == null);
+      const hasApproximateType = perTypePredictions.some(({ prediction }) => prediction?.isApproximate);
+      const total = perTypePredictions.reduce((sum, { prediction }) => sum + (prediction?.value ?? 0), 0);
       const breakdown = perTypePredictions
-        .map(({ type, prediction, isWeakBasis }) => {
+        .map(({ type, prediction }) => {
           if (prediction == null) return `${type.label} 尚無資料`;
-          return `${type.label} ${formatScore(prediction)} 分${isWeakBasis ? "（近似）" : ""}`;
+          return `${type.label} ${formatScore(prediction.value)} 分${prediction.isApproximate ? "（近似）" : ""}`;
         })
         .join(" + ");
+      const titlePrefix = hasMissingType ? "預測總分（部分資料）" : hasApproximateType ? "預測總分（近似）" : "預測總分";
       return {
         value: total,
-        label: `${isPartial ? "預測總分（部分資料）" : "預測總分"}：${formatScore(total)} 分（${breakdown}）`,
+        label: `${titlePrefix}：${formatScore(total)} 分（${breakdown}）`,
       };
     }
-    const value = typePredictions.get(trendType);
-    if (value == null) return null;
-    const isWeakBasis = (typePointCounts.get(trendType) ?? 0) < 2;
-    return { value, label: `預測：${formatScore(value)} 分${isWeakBasis ? "（近似）" : ""}` };
+    const prediction = typePredictions.get(trendType);
+    if (prediction == null) return null;
+    return { value: prediction.value, label: `預測：${formatScore(prediction.value)} 分${prediction.isApproximate ? "（近似）" : ""}` };
   })();
 
   async function handleAddRecord(formEl: HTMLFormElement) {

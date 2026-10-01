@@ -283,23 +283,35 @@ export function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+export interface PredictionResult {
+  /** The predicted next score. */
+  value: number;
+  /**
+   * True when the value is a fallback (the most recent score) rather than
+   * an actual regression estimate, because there weren't enough points
+   * (< 2) to compute a trend. Callers should surface this so the UI doesn't
+   * present a single-point fallback as if it were a full regression result.
+   */
+  isApproximate: boolean;
+}
+
 /**
  * Predicts the next value of a chronological score series using simple
  * linear regression (index as x, score as y). Returns null when there is no
  * data at all. When there are fewer than 2 points the regression slope
- * cannot be determined, so we fall back to the most recent score instead of
- * forcing a value of 0 — a single data point is still the best guess we
- * have for "next time" performance.
+ * cannot be determined, so we fall back to the most recent score (flagged
+ * via `isApproximate`) instead of forcing a value of 0 — a single data
+ * point is still the best guess we have for "next time" performance.
  */
-export function predictNextValue(values: number[]): number | null {
+export function predictNextValue(values: number[]): PredictionResult | null {
   if (!values.length) return null;
-  if (values.length < 2) return values[values.length - 1];
+  if (values.length < 2) return { value: values[values.length - 1], isApproximate: true };
 
   const meanX = (values.length - 1) / 2;
   const meanY = average(values);
   const denominator = values.reduce((sum, _, index) => sum + (index - meanX) ** 2, 0);
   const slope = values.reduce((sum, value, index) => sum + (index - meanX) * (value - meanY), 0) / denominator;
-  return meanY + slope * (values.length - meanX);
+  return { value: meanY + slope * (values.length - meanX), isApproximate: false };
 }
 
 export function formatScore(value: number | null | undefined): string {
