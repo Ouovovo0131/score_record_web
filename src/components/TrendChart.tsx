@@ -234,29 +234,33 @@ export function MultiTrendChart({
         >
           最低 {formatScore(minValue)}
         </text>
-        {capLine && (
-          <g>
-            <line
-              x1={padding.left}
-              y1={yFor(capLine.value)}
-              x2={width - padding.right}
-              y2={yFor(capLine.value)}
-              stroke={capLine.color ?? "#c22a6e"}
-              strokeWidth={1.5}
-              strokeDasharray={capLine.dashArray ?? "2 4"}
-            />
-            <text
-              x={padding.left + 5}
-              y={yFor(capLine.value) - 8}
-              fill={capLine.color ?? "#c22a6e"}
-              fontSize={12}
-              fontWeight={700}
-              textAnchor="start"
-            >
-              {capLine.label}
-            </text>
-          </g>
-        )}
+        {capLine && (() => {
+          const capLineColor = capLine.color ?? "#c22a6e";
+          const capLineDashArray = capLine.dashArray ?? "2 4";
+          return (
+            <g>
+              <line
+                x1={padding.left}
+                y1={yFor(capLine.value)}
+                x2={width - padding.right}
+                y2={yFor(capLine.value)}
+                stroke={capLineColor}
+                strokeWidth={1.5}
+                strokeDasharray={capLineDashArray}
+              />
+              <text
+                x={padding.left + 5}
+                y={yFor(capLine.value) - 8}
+                fill={capLineColor}
+                fontSize={12}
+                fontWeight={700}
+                textAnchor="start"
+              >
+                {capLine.label}
+              </text>
+            </g>
+          );
+        })()}
         {series.map((s) => {
           if (!s.points.length) return null;
           const plotted = s.points.map((point) => {
