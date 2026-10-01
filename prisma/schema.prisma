@@ -29,6 +29,45 @@ model ExamRecord {
   socialGrade   Float?
   scienceScore  Float?
   scienceGrade  Float?
+  chineseComprehensiveScore Float?
+  chineseWritingScore Float?
+  englishChoiceScore Float?
+  englishMixedScore Float?
+  englishTranslationScore Float?
+  englishEssayScore Float?
+  mathChoiceScore Float?
+  mathMixedScore Float?
+  scienceChoiceScore Float?
+  physicsNonChoiceScore Float?
+  chemistryNonChoiceScore Float?
+  biologyNonChoiceScore Float?
+  earthScienceNonChoiceScore Float?
+  chineseTopGrade Float?
+  chineseFrontGrade Float?
+  chineseAverageGrade Float?
+  chineseBackGrade Float?
+  chineseBottomGrade Float?
+  englishTopGrade Float?
+  englishFrontGrade Float?
+  englishAverageGrade Float?
+  englishBackGrade Float?
+  englishBottomGrade Float?
+  mathTopGrade Float?
+  mathFrontGrade Float?
+  mathAverageGrade Float?
+  mathBackGrade Float?
+  mathBottomGrade Float?
+  scienceTopGrade Float?
+  scienceFrontGrade Float?
+  scienceAverageGrade Float?
+  scienceBackGrade Float?
+  scienceBottomGrade Float?
+  classRank Float?
+  classTotal Float?
+  schoolRank Float?
+  schoolTotal Float?
+  overallRank Float?
+  overallTotal Float?
   reviewTags    Json     @default("[]")
   notes         String   @default("")
   createdAt     DateTime @default(now())
@@ -52,6 +91,7 @@ model EnglishRecord {
   structureScore    Float?
   readingScore      Float?
   mixedScore        Float?
+  translationScore Float?
   notes             String   @default("")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
