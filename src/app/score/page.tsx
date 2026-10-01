@@ -251,18 +251,38 @@ function ScorePageContent() {
       nextRecord[subject.scoreKey] = calculateSubjectScore(nextRecord as Record<string, number | null | undefined>, subject);
     }
     nextRecord.totalGrade = calculateTotalGrade(nextRecord as Record<string, number | null | undefined>);
-    const response = await fetch(`/api/exam-records/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nextRecord),
-    });
-    if (!response.ok) {
-      setStatus({ text: "修改成績失敗，請稍後再試。", type: "error" });
-      return;
+    try {
+      const response = await fetch(`/api/exam-records/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextRecord),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        setStatus({
+          text: typeof result?.error === "string"
+            ? `修改成績失敗：${result.error}`
+            : `修改成績失敗（HTTP ${response.status}），請稍後再試。`,
+          type: "error",
+        });
+        return;
+      }
+
+      const savedRecord = (await response.json()) as ExamRecordDTO;
+      setRecords((currentRecords) => currentRecords.map((record) => record.id === id ? savedRecord : record));
+      setEditingRecordId(null);
+      setStatus({ text: "已儲存成績紀錄。", type: "success" });
+
+      try {
+        const recordsResponse = await fetch("/api/exam-records");
+        if (!recordsResponse.ok) throw new Error("Failed to refresh records");
+        setRecords(await recordsResponse.json());
+      } catch {
+        setStatus({ text: "成績已儲存，但重新讀取紀錄失敗；重新整理頁面即可更新顯示。", type: "error" });
+      }
+    } catch {
+      setStatus({ text: "無法連線儲存成績，請檢查網路後重試。", type: "error" });
     }
-    await refresh();
-    setEditingRecordId(null);
-    setStatus({ text: "已儲存成績紀錄。", type: "success" });
   }
 
   async function handleSaveGoal(formEl: HTMLFormElement) {
