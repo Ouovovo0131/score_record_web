@@ -2,6 +2,9 @@
 
 import { compactDate, formatScore } from "@/lib/data";
 
+const DEFAULT_CAP_LINE_COLOR = "#c22a6e";
+const DEFAULT_CAP_LINE_DASH = "2 4";
+
 export interface TrendPoint {
   date: string;
   value: number;
@@ -235,8 +238,8 @@ export function MultiTrendChart({
           最低 {formatScore(minValue)}
         </text>
         {capLine && (() => {
-          const capLineColor = capLine.color ?? "#c22a6e";
-          const capLineDashArray = capLine.dashArray ?? "2 4";
+          const capLineColor = capLine.color ?? DEFAULT_CAP_LINE_COLOR;
+          const capLineDashArray = capLine.dashArray ?? DEFAULT_CAP_LINE_DASH;
           return (
             <g>
               <line

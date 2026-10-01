@@ -148,6 +148,10 @@ function EnglishPageContent() {
   const typePredictions = new Map(
     trendSeries.map((series) => [series.key, predictNextValue(series.points.map((p) => p.value))])
   );
+  // Tracks how many data points backed each type's prediction, so we can
+  // flag predictions based on a single point (predictNextValue's "last
+  // score" fallback) as a weaker, non-regression estimate.
+  const typePointCounts = new Map(trendSeries.map((series) => [series.key, series.points.length]));
   const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
   const trendYAxisMin = 0;
   const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
@@ -158,16 +162,20 @@ function EnglishPageContent() {
       const perTypePredictions = ENGLISH_PRACTICE_TYPES.map((type) => ({
         type,
         prediction: typePredictions.get(type.key) ?? null,
+        isWeakBasis: (typePointCounts.get(type.key) ?? 0) < 2,
       }));
       if (perTypePredictions.every(({ prediction }) => prediction == null)) return null;
-      const isPartial = perTypePredictions.some(({ prediction }) => prediction == null);
-      // When a type has no history yet, the "total" is really just the sum
-      // of the available types (adding 0 for the missing side doesn't
-      // change the plotted value) — but we must label it as a partial total
-      // so it isn't misread as "this type is predicted to score zero".
+      // Flag the total as "partial/approximate" both when a type has no
+      // history at all (missing from the sum) and when a type only has a
+      // single data point, since that prediction is a last-score fallback
+      // rather than an actual regression estimate.
+      const isPartial = perTypePredictions.some(({ prediction, isWeakBasis }) => prediction == null || isWeakBasis);
       const total = perTypePredictions.reduce((sum, { prediction }) => sum + (prediction ?? 0), 0);
       const breakdown = perTypePredictions
-        .map(({ type, prediction }) => `${type.label} ${prediction == null ? "尚無資料" : `${formatScore(prediction)} 分`}`)
+        .map(({ type, prediction, isWeakBasis }) => {
+          if (prediction == null) return `${type.label} 尚無資料`;
+          return `${type.label} ${formatScore(prediction)} 分${isWeakBasis ? "（近似）" : ""}`;
+        })
         .join(" + ");
       return {
         value: total,
@@ -176,7 +184,8 @@ function EnglishPageContent() {
     }
     const value = typePredictions.get(trendType);
     if (value == null) return null;
-    return { value, label: `預測：${formatScore(value)} 分` };
+    const isWeakBasis = (typePointCounts.get(trendType) ?? 0) < 2;
+    return { value, label: `預測：${formatScore(value)} 分${isWeakBasis ? "（近似）" : ""}` };
   })();
 
   async function handleAddRecord(formEl: HTMLFormElement) {
