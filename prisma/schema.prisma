@@ -17,7 +17,7 @@ model ExamRecord {
   userEmail     String
   examName      String
   examDate      DateTime
-  totalScore    Float
+  totalScore    Float    @default(0)
   totalGrade    Float?
   chineseScore  Float?
   chineseGrade  Float?

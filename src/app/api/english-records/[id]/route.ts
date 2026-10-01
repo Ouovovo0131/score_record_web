@@ -15,6 +15,7 @@ function serialize(record: {
   structureScore: number | null;
   readingScore: number | null;
   mixedScore: number | null;
+  translationScore: number | null;
   notes: string;
 }) {
   return {
@@ -40,6 +41,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       structureScore: body.structureScore ?? null,
       readingScore: body.readingScore ?? null,
       mixedScore: body.mixedScore ?? null,
+      translationScore: body.translationScore ?? null,
       notes: body.notes ?? "",
     },
   });

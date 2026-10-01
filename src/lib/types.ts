@@ -5,7 +5,6 @@ export interface ExamRecordDTO {
   id: string;
   examName: string;
   examDate: string;
-  totalScore: number;
   totalGrade: number | null;
   chineseScore: number | null;
   chineseGrade: number | null;
@@ -13,10 +12,47 @@ export interface ExamRecordDTO {
   englishGrade: number | null;
   mathScore: number | null;
   mathGrade: number | null;
-  socialScore: number | null;
-  socialGrade: number | null;
   scienceScore: number | null;
   scienceGrade: number | null;
+  chineseComprehensiveScore: number | null;
+  chineseWritingScore: number | null;
+  englishChoiceScore: number | null;
+  englishMixedScore: number | null;
+  englishTranslationScore: number | null;
+  englishEssayScore: number | null;
+  mathChoiceScore: number | null;
+  mathMixedScore: number | null;
+  scienceChoiceScore: number | null;
+  physicsNonChoiceScore: number | null;
+  chemistryNonChoiceScore: number | null;
+  biologyNonChoiceScore: number | null;
+  earthScienceNonChoiceScore: number | null;
+  chineseTopGrade: number | null;
+  chineseFrontGrade: number | null;
+  chineseAverageGrade: number | null;
+  chineseBackGrade: number | null;
+  chineseBottomGrade: number | null;
+  englishTopGrade: number | null;
+  englishFrontGrade: number | null;
+  englishAverageGrade: number | null;
+  englishBackGrade: number | null;
+  englishBottomGrade: number | null;
+  mathTopGrade: number | null;
+  mathFrontGrade: number | null;
+  mathAverageGrade: number | null;
+  mathBackGrade: number | null;
+  mathBottomGrade: number | null;
+  scienceTopGrade: number | null;
+  scienceFrontGrade: number | null;
+  scienceAverageGrade: number | null;
+  scienceBackGrade: number | null;
+  scienceBottomGrade: number | null;
+  classRank: number | null;
+  classTotal: number | null;
+  schoolRank: number | null;
+  schoolTotal: number | null;
+  overallRank: number | null;
+  overallTotal: number | null;
   reviewTags: string[];
   notes: string;
 }
@@ -33,6 +69,7 @@ export interface EnglishRecordDTO {
   structureScore: number | null;
   readingScore: number | null;
   mixedScore: number | null;
+  translationScore: number | null;
   notes: string;
 }
 

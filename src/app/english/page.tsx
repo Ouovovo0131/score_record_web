@@ -39,6 +39,7 @@ function EnglishPageContent() {
   const [showModal, setShowModal] = useState(false);
   const [practiceTypeInput, setPracticeTypeInput] = useState<string>("miaomiao");
   const [trendType, setTrendType] = useState<"all" | EnglishPracticeType>("all");
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/english-records")
@@ -151,38 +152,29 @@ function EnglishPageContent() {
   const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
   const trendYAxisMin = 0;
   const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
-  const trendCapLine =
-    trendType === "cloze" && selectedType ? { value: selectedType.maxScore, label: `滿分 ${selectedType.maxScore}` } : null;
-  const trendPrediction = (() => {
-    if (trendType === "all") {
-      const perTypePredictions = ENGLISH_PRACTICE_TYPES.map((type) => ({
-        type,
-        prediction: typePredictions.get(type.key) ?? null,
-      }));
-      if (perTypePredictions.every(({ prediction }) => prediction == null)) return null;
-      // Missing data (a type with no history at all) and a weak single-point
-      // basis (predictNextValue's last-score fallback) are distinct
-      // situations, so they get distinct label wording rather than being
-      // conflated into one generic "partial" flag.
-      const hasMissingType = perTypePredictions.some(({ prediction }) => prediction == null);
-      const hasApproximateType = perTypePredictions.some(({ prediction }) => prediction?.isApproximate);
-      const total = perTypePredictions.reduce((sum, { prediction }) => sum + (prediction?.value ?? 0), 0);
-      const breakdown = perTypePredictions
-        .map(({ type, prediction }) => {
-          if (prediction == null) return `${type.label} 尚無資料`;
-          return `${type.label} ${formatScore(prediction.value)} 分${prediction.isApproximate ? "（近似）" : ""}`;
+  const trendReferenceLines =
+    trendType === "all"
+      ? trendSeries.flatMap((series) => {
+          const values = series.points.map((point) => point.value);
+          if (!values.length) return [];
+          const type = ENGLISH_PRACTICE_TYPES.find((item) => item.key === series.key)!;
+          return [{
+            value: Math.max(...values),
+            label: `${type.label}最高 ${formatScore(Math.max(...values))}`,
+            color: series.color,
+          }];
         })
-        .join(" + ");
-      const titlePrefix = hasMissingType ? "預測總分（部分資料）" : hasApproximateType ? "預測總分（近似）" : "預測總分";
-      return {
-        value: total,
-        label: `${titlePrefix}：${formatScore(total)} 分（${breakdown}）`,
-      };
-    }
-    const prediction = typePredictions.get(trendType);
-    if (prediction == null) return null;
-    return { value: prediction.value, label: `預測：${formatScore(prediction.value)} 分${prediction.isApproximate ? "（近似）" : ""}` };
-  })();
+      : [];
+  const trendPredictions = (trendType === "all" ? ENGLISH_PRACTICE_TYPES : ENGLISH_PRACTICE_TYPES.filter((type) => type.key === trendType))
+    .flatMap((type) => {
+      const prediction = typePredictions.get(type.key);
+      if (!prediction) return [];
+      return [{
+        value: prediction.value,
+        label: `${type.label} ${formatScore(prediction.value)}${prediction.isApproximate ? "（近似）" : ""}`,
+        color: type.key === "miaomiao" ? "#3563e9" : "#20a16b",
+      }];
+    });
 
   async function handleAddRecord(formEl: HTMLFormElement) {
     const formData = new FormData(formEl);
@@ -204,6 +196,7 @@ function EnglishPageContent() {
       structureScore: toNum("structureScore"),
       readingScore: toNum("readingScore"),
       mixedScore: toNum("mixedScore"),
+      translationScore: toNum("translationScore"),
       totalScore: toNum("totalScore"),
       notes: String(formData.get("notes") || "").trim(),
     };
@@ -242,14 +235,46 @@ function EnglishPageContent() {
     setStatus({ text: "已新增英文練習紀錄。", type: "success" });
   }
 
-  async function handleDeleteRecord(id: string) {
-    const res = await fetch(`/api/english-records/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      setStatus({ text: "刪除失敗，請稍後再試。", type: "error" });
+  async function handleSaveRecord(formEl: HTMLFormElement, id: string) {
+    const formData = new FormData(formEl);
+    const toNum = (key: string) => {
+      const value = formData.get(key);
+      if (value === null || value === "") return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    };
+    const practiceType = String(formData.get("practiceType") || "");
+    const record: Partial<EnglishRecordDTO> = {
+      practiceType,
+      practiceDate: String(formData.get("practiceDate") || ""),
+      practiceName: String(formData.get("practiceName") || "").trim(),
+      vocabularyScore: toNum("vocabularyScore"),
+      clozeScore: toNum("clozeScore"),
+      contextScore: toNum("contextScore"),
+      structureScore: toNum("structureScore"),
+      readingScore: toNum("readingScore"),
+      mixedScore: toNum("mixedScore"),
+      translationScore: toNum("translationScore"),
+      notes: String(formData.get("notes") || "").trim(),
+    };
+    (ENGLISH_UNAVAILABLE_CATEGORY_MAP[practiceType] || []).forEach((key) => {
+      (record as Record<string, unknown>)[key] = null;
+    });
+    const scores = ENGLISH_CATEGORIES.map(({ key }) => record[key as keyof EnglishRecordDTO] as number | null)
+      .filter(Number.isFinite) as number[];
+    record.totalScore = scores.length ? scores.reduce((sum, score) => sum + score, 0) : null;
+    const response = await fetch(`/api/english-records/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record),
+    });
+    if (!response.ok) {
+      setStatus({ text: "修改英文紀錄失敗，請稍後再試。", type: "error" });
       return;
     }
     await refresh();
-    setStatus({ text: "已刪除該筆英文紀錄。", type: "success" });
+    setEditingRecordId(null);
+    setStatus({ text: "已儲存英文紀錄。", type: "success" });
   }
 
   if (loading) {
@@ -389,7 +414,7 @@ function EnglishPageContent() {
         </div>
         <p className="mt-1 text-muted">
           {trendType === "all"
-            ? `${ENGLISH_PRACTICE_TYPES.map((type) => `${type.label}（滿分 ${type.maxScore}）`).join("與")}分開繪製，Y 軸為各題型滿分相加（0–${ENGLISH_TOTAL_MAX_SCORE}）。`
+            ? `妙妙卷與克漏字分開繪製，Y 軸固定為 0–${ENGLISH_TOTAL_MAX_SCORE} 分，並分別顯示目前最高分與下次預測。`
             : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分。`}
           {visibleTrendCount === 1 ? " 資料筆數不足以回歸，預測將以最近一次成績作為近似值。" : ""}
         </p>
@@ -399,8 +424,9 @@ function EnglishPageContent() {
             emptyMessage="目前選擇的練習類型沒有有效總分資料。"
             yAxisMin={trendYAxisMin}
             yAxisMax={trendYAxisMax}
-            capLine={trendCapLine}
-            prediction={trendPrediction}
+            referenceLines={trendReferenceLines}
+            predictions={trendPredictions}
+            showExtrema={trendType !== "all"}
           />
         </div>
       </section>
@@ -433,7 +459,7 @@ function EnglishPageContent() {
           <table className="mobile-table w-full min-w-[1180px] border-collapse">
             <thead>
               <tr>
-                {["日期", "練習類型", "練習名稱", "總分", "詞彙", "綜合測驗", "文意選填", "篇章結構", "閱讀", "混合", "備註", "操作"].map((h) => (
+                {["日期", "練習類型", "練習名稱", "總分", ...ENGLISH_CATEGORIES.map((category) => category.label), "備註", "操作"].map((h) => (
                   <th key={h} className="border-b border-line bg-[#f9fafb] px-3 py-3.5 text-left font-bold text-muted">
                     {h}
                   </th>
@@ -443,7 +469,7 @@ function EnglishPageContent() {
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={ENGLISH_CATEGORIES.length + 6} className="px-3 py-6 text-center text-muted">
                     目前還沒有任何英文練習紀錄。
                   </td>
                 </tr>
@@ -451,31 +477,38 @@ function EnglishPageContent() {
                 records
                   .slice()
                   .reverse()
-                  .map((record) => (
+                  .map((record) => {
+                    const editing = editingRecordId === record.id;
+                    const formId = `edit-english-${record.id}`;
+                    return (
                     <tr key={record.id} className="hover:bg-[#f9fafb]">
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{record.practiceDate}</td>
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{getPracticeTypeLabel(record.practiceType)}</td>
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{record.practiceName}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="practiceDate" type="date" defaultValue={record.practiceDate} className="w-32 border border-line px-2 py-1" /> : record.practiceDate}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <select form={formId} name="practiceType" defaultValue={record.practiceType} className="border border-line px-2 py-1">{ENGLISH_PRACTICE_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}</select> : getPracticeTypeLabel(record.practiceType)}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="practiceName" defaultValue={record.practiceName} className="w-32 border border-line px-2 py-1" /> : record.practiceName}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{formatMaybeNumber(record.totalScore)}</td>
                       {ENGLISH_CATEGORIES.map((category) => (
                         <td key={category.key} className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
                           {isUnavailableCategory(record.practiceType, category.key)
                             ? "-"
-                            : formatMaybeNumber(record[category.key as keyof EnglishRecordDTO] as number | null)}
+                            : editing
+                              ? <input form={formId} name={category.key} type="number" min={0} max={category.maxScore} step={0.1} defaultValue={record[category.key as keyof EnglishRecordDTO] as number | null ?? ""} className="w-20 border border-line px-2 py-1" aria-label={category.label} />
+                              : formatMaybeNumber(record[category.key as keyof EnglishRecordDTO] as number | null)}
                         </td>
                       ))}
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{record.notes || "—"}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <textarea form={formId} name="notes" defaultValue={record.notes} className="w-40 border border-line px-2 py-1" /> : record.notes || "—"}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRecord(record.id)}
-                          className="bg-danger px-3 py-2 font-bold text-white"
-                        >
-                          刪除
-                        </button>
+                        {editing ? (
+                          <form id={formId} onSubmit={(event) => { event.preventDefault(); handleSaveRecord(event.currentTarget, record.id); }}>
+                            <button type="submit" className="border border-ink bg-ink px-3 py-2 font-bold text-white">儲存</button>
+                            <button type="button" onClick={() => setEditingRecordId(null)} className="mt-2 border border-line px-3 py-2 font-bold">取消</button>
+                          </form>
+                        ) : (
+                          <button type="button" onClick={() => setEditingRecordId(record.id)} className="border border-line px-3 py-2 font-bold text-primary">修改</button>
+                        )}
                       </td>
                     </tr>
-                  ))
+                  );
+                  })
               )}
             </tbody>
           </table>

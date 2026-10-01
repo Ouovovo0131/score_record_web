@@ -2,9 +2,6 @@
 
 import { compactDate, formatScore } from "@/lib/data";
 
-const DEFAULT_CAP_LINE_COLOR = "#c22a6e";
-const DEFAULT_CAP_LINE_DASH = "2 4";
-
 export interface TrendPoint {
   date: string;
   value: number;
@@ -92,21 +89,18 @@ export interface MultiSeries {
   points: TrendPoint[];
 }
 
-export interface CapLine {
-  /** The fixed full-score value to draw the dashed cap line at. */
-  value: number;
-  /** Label text shown next to the cap line, e.g. "滿分 28". */
-  label: string;
-  /** Optional override color/dash style so it stays visually distinct from the max/min lines. */
-  color?: string;
-  dashArray?: string;
-}
-
 export interface PredictionLabel {
   /** The predicted next score to plot on the right edge of the chart. */
   value: number;
   /** Full label text shown next to the prediction marker. */
   label: string;
+  color?: string;
+}
+
+export interface ReferenceLine {
+  value: number;
+  label: string;
+  color: string;
 }
 
 export function MultiTrendChart({
@@ -114,8 +108,9 @@ export function MultiTrendChart({
   emptyMessage = "目前沒有資料可顯示。",
   yAxisMin,
   yAxisMax,
-  capLine,
-  prediction,
+  referenceLines = [],
+  predictions = [],
+  showExtrema = true,
 }: {
   series: MultiSeries[];
   emptyMessage?: string;
@@ -123,10 +118,12 @@ export function MultiTrendChart({
   yAxisMin?: number;
   /** Fixed Y axis upper bound (e.g. 80 for 妙妙卷, 28 for 克漏字). Falls back to the data's max value when omitted. */
   yAxisMax?: number;
-  /** Optional full-score cap line (currently only used for 克漏字, whose max score is 28). */
-  capLine?: CapLine | null;
-  /** Externally computed next-score prediction (see english/page.tsx for the per-type regression logic). */
-  prediction?: PredictionLabel | null;
+  /** Reference lines used to compare the current best score for each practice type. */
+  referenceLines?: ReferenceLine[];
+  /** Independently computed next-score predictions. */
+  predictions?: PredictionLabel[];
+  /** Whether to show the chart's observed high and low lines. */
+  showExtrema?: boolean;
 }) {
   const allValues = series.flatMap((s) => s.points.map((p) => p.value));
   if (!allValues.length) {
@@ -154,7 +151,7 @@ export function MultiTrendChart({
     );
   const pointIndices = new Map(timeline.map(({ point }, index) => [point, index]));
   const axisMin = yAxisMin ?? minValue;
-  const axisMax = yAxisMax ?? Math.max(maxValue, prediction?.value ?? maxValue);
+  const axisMax = yAxisMax ?? Math.max(maxValue, ...predictions.map(({ value }) => value));
   const range = Math.max(axisMax - axisMin, 10);
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
@@ -163,25 +160,13 @@ export function MultiTrendChart({
   const xFor = (point: TrendPoint) => {
     const index = pointIndices.get(point) ?? 0;
     const position =
-      prediction != null
+      predictions.length > 0
         ? index / timeline.length
         : timeline.length === 1
           ? 0.5
           : index / (timeline.length - 1);
     return padding.left + innerWidth * position;
   };
-  const predictionX = padding.left + innerWidth;
-  // Clamp the plotted marker to the fixed axis range while still showing the
-  // real predicted value in the label text.
-  const predictionY =
-    prediction == null ? null : yFor(Math.min(Math.max(prediction.value, axisMin), axisMax));
-  const predictionLabelY =
-    predictionY === null
-      ? null
-      : predictionY < height - padding.bottom - 28
-        ? predictionY + 22
-        : predictionY - 12;
-
   return (
     <div className="mobile-chart min-h-[320px] border border-line bg-white">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="總分成長曲線與下一次預測" className="block h-[320px] w-full">
@@ -199,71 +184,71 @@ export function MultiTrendChart({
             </g>
           );
         })}
-        <line
-          x1={padding.left}
-          y1={yFor(maxValue)}
-          x2={width - padding.right}
-          y2={yFor(maxValue)}
-          stroke="#db7048"
-          strokeWidth={1.5}
-          strokeDasharray="8 5"
-        />
-        <text
-          x={width - padding.right - 5}
-          y={yFor(maxValue) - 8}
-          fill="#a74324"
-          fontSize={12}
-          fontWeight={700}
-          textAnchor="end"
-        >
-          最高 {formatScore(maxValue)}
-        </text>
-        <line
-          x1={padding.left}
-          y1={yFor(minValue)}
-          x2={width - padding.right}
-          y2={yFor(minValue)}
-          stroke="#8065b5"
-          strokeWidth={1.5}
-          strokeDasharray="8 5"
-        />
-        <text
-          x={padding.left + 5}
-          y={yFor(minValue) + 16}
-          fill="#60458f"
-          fontSize={12}
-          fontWeight={700}
-          textAnchor="start"
-        >
-          最低 {formatScore(minValue)}
-        </text>
-        {capLine && (() => {
-          const capLineColor = capLine.color ?? DEFAULT_CAP_LINE_COLOR;
-          const capLineDashArray = capLine.dashArray ?? DEFAULT_CAP_LINE_DASH;
-          return (
-            <g>
-              <line
-                x1={padding.left}
-                y1={yFor(capLine.value)}
-                x2={width - padding.right}
-                y2={yFor(capLine.value)}
-                stroke={capLineColor}
-                strokeWidth={1.5}
-                strokeDasharray={capLineDashArray}
-              />
-              <text
-                x={padding.left + 5}
-                y={yFor(capLine.value) - 8}
-                fill={capLineColor}
-                fontSize={12}
-                fontWeight={700}
-                textAnchor="start"
-              >
-                {capLine.label}
-              </text>
-            </g>
-          );
-        })()}
+        {showExtrema && (
+          <>
+            <line
+              x1={padding.left}
+              y1={yFor(maxValue)}
+              x2={width - padding.right}
+              y2={yFor(maxValue)}
+              stroke="#db7048"
+              strokeWidth={1.5}
+              strokeDasharray="8 5"
+            />
+            <text
+              x={width - padding.right - 5}
+              y={yFor(maxValue) - 8}
+              fill="#a74324"
+              fontSize={12}
+              fontWeight={700}
+              textAnchor="end"
+            >
+              最高 {formatScore(maxValue)}
+            </text>
+            <line
+              x1={padding.left}
+              y1={yFor(minValue)}
+              x2={width - padding.right}
+              y2={yFor(minValue)}
+              stroke="#8065b5"
+              strokeWidth={1.5}
+              strokeDasharray="8 5"
+            />
+            <text
+              x={padding.left + 5}
+              y={yFor(minValue) + 16}
+              fill="#60458f"
+              fontSize={12}
+              fontWeight={700}
+              textAnchor="start"
+            >
+              最低 {formatScore(minValue)}
+            </text>
+          </>
+        )}
+        {referenceLines.map((line) => (
+          <g key={`${line.label}-${line.value}`}>
+            <line
+              x1={padding.left}
+              y1={yFor(line.value)}
+              x2={width - padding.right}
+              y2={yFor(line.value)}
+              stroke={line.color}
+              strokeWidth={1.5}
+              strokeDasharray="2 4"
+            />
+            <text
+              x={padding.left + 5}
+              y={yFor(line.value) - 8}
+              fill={line.color}
+              fontSize={12}
+              fontWeight={700}
+              textAnchor="start"
+            >
+              {line.label}
+            </text>
+          </g>
+        ))}
         {series.map((s) => {
           if (!s.points.length) return null;
           const plotted = s.points.map((point) => {
@@ -292,29 +277,36 @@ export function MultiTrendChart({
             </g>
           );
         })}
-        {prediction != null && predictionY !== null && predictionLabelY !== null && (
-          <g>
-            <path
-              d={`M ${predictionX} ${predictionY - 7} L ${predictionX + 7} ${predictionY} L ${predictionX} ${predictionY + 7} L ${predictionX - 7} ${predictionY} Z`}
-              fill="#ffffff"
-              stroke="#d08016"
-              strokeWidth={3}
-            />
-            <text
-              x={predictionX - 10}
-              y={predictionLabelY}
-              fill="#9a5a05"
-              fontSize={12}
-              fontWeight={700}
-              textAnchor="end"
-            >
-              {prediction.label}
-            </text>
-            <text x={predictionX} y={height - padding.bottom + 22} fill="#5d6880" fontSize={12} textAnchor="middle">
-              下次
-            </text>
-          </g>
-        )}
+        {predictions.map((prediction, index) => {
+          const x = predictionX - 8 + index * 16;
+          const boundedValue = Math.min(Math.max(prediction.value, axisMin), axisMax);
+          const y = yFor(boundedValue);
+          const labelY = y < height - padding.bottom - 28 ? y + 22 : y - 12;
+          const color = prediction.color ?? "#d08016";
+          return (
+            <g key={prediction.label}>
+              <path
+                d={`M ${x} ${y - 7} L ${x + 7} ${y} L ${x} ${y + 7} L ${x - 7} ${y} Z`}
+                fill="#ffffff"
+                stroke={color}
+                strokeWidth={3}
+              />
+              <text
+                x={x - 10}
+                y={labelY}
+                fill={color}
+                fontSize={12}
+                fontWeight={700}
+                textAnchor="end"
+              >
+                {prediction.label}
+              </text>
+              <text x={x} y={height - padding.bottom + 22} fill="#5d6880" fontSize={12} textAnchor="middle">
+                下次
+              </text>
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
