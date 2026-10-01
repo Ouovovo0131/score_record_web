@@ -5,6 +5,7 @@ import RequireAuth from "@/components/RequireAuth";
 import { InsightCard, Tag } from "@/components/InsightCard";
 import { MultiTrendChart } from "@/components/TrendChart";
 import { average, formatScore, ENGLISH_CATEGORIES, ENGLISH_PRACTICE_TYPES, ENGLISH_UNAVAILABLE_CATEGORY_MAP } from "@/lib/data";
+import type { EnglishPracticeType } from "@/lib/data";
 import type { EnglishRecordDTO } from "@/lib/types";
 
 function getFiniteValues(values: (number | null | undefined)[]): number[] {
@@ -29,6 +30,7 @@ function EnglishPageContent() {
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [practiceTypeInput, setPracticeTypeInput] = useState<string>("miaomiao");
+  const [trendType, setTrendType] = useState<"all" | EnglishPracticeType>("all");
 
   useEffect(() => {
     fetch("/api/english-records")
@@ -126,6 +128,9 @@ function EnglishPageContent() {
       .filter((r) => r.practiceType === type.key && Number.isFinite(r.totalScore))
       .map((r) => ({ date: r.practiceDate, value: r.totalScore as number })),
   }));
+  const visibleTrendSeries =
+    trendType === "all" ? trendSeries : trendSeries.filter((series) => series.key === trendType);
+  const visibleTrendCount = visibleTrendSeries.reduce((count, series) => count + series.points.length, 0);
 
   async function handleAddRecord(formEl: HTMLFormElement) {
     const formData = new FormData(formEl);
@@ -311,10 +316,31 @@ function EnglishPageContent() {
       </div>
 
       <section className="mt-5 border border-line bg-white p-5">
-        <h2 className="text-xl font-bold">總分成長曲線</h2>
-        <p className="mt-1 text-muted">妙妙卷（藍）與克漏字（綠）分開繪製。</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">總分成長曲線</h2>
+          <label className="flex items-center gap-2 text-sm font-semibold text-muted">
+            顯示題型
+            <select
+              value={trendType}
+              onChange={(event) => setTrendType(event.target.value as "all" | EnglishPracticeType)}
+              aria-label="選擇總分成長曲線題型"
+              className="border border-line bg-white px-3 py-2 text-ink"
+            >
+              <option value="all">全部</option>
+              {ENGLISH_PRACTICE_TYPES.map((type) => (
+                <option key={type.key} value={type.key}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="mt-1 text-muted">
+          {trendType === "all" ? "妙妙卷（藍）與克漏字（綠）分開繪製。" : `僅顯示${getPracticeTypeLabel(trendType)}成績。`}
+          {visibleTrendCount === 1 ? " 至少需要 2 筆有效成績才會顯示預測。" : ""}
+        </p>
         <div className="mt-4">
-          <MultiTrendChart series={trendSeries} />
+          <MultiTrendChart series={visibleTrendSeries} emptyMessage="目前選擇的練習類型沒有有效總分資料。" />
         </div>
       </section>
 
