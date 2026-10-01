@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { InsightCard, Tag, buildComparison } from "@/components/InsightCard";
 import { TrendChart } from "@/components/TrendChart";
-import { RadarChart } from "@/components/RadarChart";
 import { BENCHMARKS, RANK_FIELDS, SCIENCE_DETAIL_SCORES, SUBJECTS, average, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
 import type { ExamRecordDTO, GoalDTO } from "@/lib/types";
 
@@ -14,6 +13,79 @@ function getFiniteValues(values: (number | null | undefined)[]): number[] {
 
 function formatMaybeNumber(value: number | null | undefined): string {
   return Number.isFinite(value) ? formatScore(value as number) : "—";
+}
+
+function getBenchmarkBand(record: ExamRecordDTO, subjectKey: string, grade: number | null): string {
+  if (!Number.isFinite(grade)) return "級分未填";
+  const thresholds = BENCHMARKS.map((benchmark) => {
+    const key = `${subjectKey}${benchmark.key[0].toUpperCase()}${benchmark.key.slice(1)}Grade` as keyof ExamRecordDTO;
+    return record[key] as number | null;
+  });
+  if (!thresholds.some(Number.isFinite)) return "五標未設定";
+  for (const benchmark of BENCHMARKS) {
+    const key = `${subjectKey}${benchmark.key[0].toUpperCase()}${benchmark.key.slice(1)}Grade` as keyof ExamRecordDTO;
+    const threshold = record[key] as number | null;
+    if (Number.isFinite(threshold) && (grade as number) >= (threshold as number)) return benchmark.label;
+  }
+  return "低於底標";
+}
+
+function ScoreBreakdownChart({
+  title,
+  items,
+}: {
+  title: string;
+  items: { label: string; value: number | null | undefined }[];
+}) {
+  const data = items.filter((item): item is { label: string; value: number } => Number.isFinite(item.value));
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const colors = ["#3563e9", "#20a16b", "#e58b24", "#9a68c7", "#df5362"];
+  const segments = data.map((item, index) => {
+    const startAngle =
+      -90 +
+      data.slice(0, index).reduce((sum, previousItem) => sum + (total > 0 ? (previousItem.value / total) * 360 : 0), 0);
+    const angle = total > 0 ? (item.value / total) * 360 : 0;
+    const endAngle = startAngle + angle;
+    const start = {
+      x: 80 + 64 * Math.cos((startAngle * Math.PI) / 180),
+      y: 80 + 64 * Math.sin((startAngle * Math.PI) / 180),
+    };
+    const end = {
+      x: 80 + 64 * Math.cos((endAngle * Math.PI) / 180),
+      y: 80 + 64 * Math.sin((endAngle * Math.PI) / 180),
+    };
+    const largeArc = angle > 180 ? 1 : 0;
+    const path =
+      angle >= 360
+        ? `M 80 16 A 64 64 0 1 1 79.99 16 Z`
+        : `M 80 80 L ${start.x} ${start.y} A 64 64 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
+    return { ...item, color: colors[index % colors.length], path };
+  });
+
+  return (
+    <div className="border border-line bg-white p-3">
+      <h4 className="font-bold">{title}題型得分比率</h4>
+      {!data.length || total <= 0 ? (
+        <p className="mt-2 text-sm text-muted">尚無可繪製的題型分數。</p>
+      ) : (
+        <div className="mt-2 flex items-center gap-3">
+          <svg viewBox="0 0 160 160" role="img" aria-label={`${title}題型得分比率圓餅圖`} className="h-32 w-32 shrink-0">
+            {segments.map((segment) => (
+              <path key={segment.label} d={segment.path} fill={segment.color} stroke="white" strokeWidth={1} />
+            ))}
+          </svg>
+          <ul className="space-y-1 text-sm">
+            {segments.map((segment) => (
+              <li key={segment.label} className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 shrink-0" style={{ backgroundColor: segment.color }} />
+                <span>{segment.label} {formatScore(segment.value)}（{formatScore((segment.value / total) * 100)}%）</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 }
 
 type GoalGradeKey = "targetChineseGrade" | "targetEnglishGrade" | "targetMathGrade" | "targetSocialGrade" | "targetScienceGrade";
@@ -142,11 +214,28 @@ function ScorePageContent() {
     .map((record) => ({ date: record.examDate, value: record.totalGrade }))
     .filter((p): p is { date: string; value: number } => Number.isFinite(p.value));
 
-  const averageValues = SUBJECTS.map((subject) => {
-    const values = getFiniteValues(records.map((record) => record[subject.scoreKey as keyof ExamRecordDTO] as number | null));
-    return values.length ? average(values) : 0;
-  });
-  const latestValues = SUBJECTS.map((subject) => (latest ? (latest[subject.scoreKey as keyof ExamRecordDTO] as number | null) : null));
+  const overallRankMovement = (() => {
+    if (!latest || !previous || !Number.isFinite(latest.overallRank) || !Number.isFinite(latest.overallTotal) ||
+      !Number.isFinite(previous.overallRank) || !Number.isFinite(previous.overallTotal) ||
+      (latest.overallTotal as number) <= 0 || (previous.overallTotal as number) <= 0) {
+      return { label: "總排名比率：資料不足", tone: "neutral" as const };
+    }
+    const latestRatio = (latest.overallRank as number) / (latest.overallTotal as number);
+    const previousRatio = (previous.overallRank as number) / (previous.overallTotal as number);
+    if (latestRatio < previousRatio) {
+      return {
+        label: `總排名比率進步 ${formatScore((previousRatio - latestRatio) * 100)} 個百分點（${formatScore(previousRatio * 100)}% → ${formatScore(latestRatio * 100)}%）`,
+        tone: "positive" as const,
+      };
+    }
+    if (latestRatio > previousRatio) {
+      return {
+        label: `總排名比率退步 ${formatScore((latestRatio - previousRatio) * 100)} 個百分點（${formatScore(previousRatio * 100)}% → ${formatScore(latestRatio * 100)}%）`,
+        tone: "negative" as const,
+      };
+    }
+    return { label: `總排名比率持平（${formatScore(latestRatio * 100)}%）`, tone: "neutral" as const };
+  })();
 
   async function refresh() {
     const [recordsData, goalData] = await Promise.all([
@@ -378,6 +467,12 @@ function ScorePageContent() {
                   <p className="mt-1 text-sm text-muted">
                     {RANK_FIELDS.map(({ key, totalKey, label }) => `${label} ${formatMaybeNumber(latest[key])}/${formatMaybeNumber(latest[totalKey])}`).join(" · ")}
                   </p>
+                  <p className={`mt-2 font-bold ${
+                    overallRankMovement.tone === "positive" ? "text-success" :
+                    overallRankMovement.tone === "negative" ? "text-danger" : "text-muted"
+                  }`}>
+                    {overallRankMovement.label}
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {(latest.reviewTags || []).map((tag) => (
@@ -385,7 +480,7 @@ function ScorePageContent() {
                   ))}
                 </div>
               </div>
-              <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                 <InsightCard
                   title="總級分"
                   value={formatMaybeNumber(latest.totalGrade)}
@@ -398,30 +493,35 @@ function ScorePageContent() {
                   )}
                 />
                 {SUBJECTS.map((subject) => {
-                  const latestScore = latest[subject.scoreKey as keyof ExamRecordDTO] as number | null;
                   const latestGrade = latest[subject.gradeKey as keyof ExamRecordDTO] as number | null;
-                  const benchmarkSummary = BENCHMARKS.map(({ key, label }) => {
-                    const benchmarkKey = `${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade` as keyof ExamRecordDTO;
-                    const currentValue = latest[benchmarkKey] as number | null;
-                    const previousValue = previous ? previous[benchmarkKey] as number | null : null;
-                    if (!Number.isFinite(currentValue) || !Number.isFinite(previousValue)) return `${label}—`;
-                    const delta = (currentValue as number) - (previousValue as number);
-                    return `${label}${delta > 0 ? "▲" : delta < 0 ? "▼" : "•"}${delta === 0 ? "" : formatScore(Math.abs(delta))}`;
-                  }).join(" ");
-                  const baseline = previous
-                    ? (previous[subject.scoreKey as keyof ExamRecordDTO] as number | null)
-                    : (() => {
-                        const values = getFiniteValues(records.map((r) => r[subject.scoreKey as keyof ExamRecordDTO] as number | null));
-                        return values.length ? average(values) : null;
-                      })();
+                  const previousGrade = previous ? previous[subject.gradeKey as keyof ExamRecordDTO] as number | null : null;
+                  const gradeChange = Number.isFinite(latestGrade) && Number.isFinite(previousGrade)
+                    ? (latestGrade as number) - (previousGrade as number)
+                    : null;
                   return (
-                    <InsightCard
-                      key={subject.key}
-                      title={subject.label}
-                      value={formatMaybeNumber(latestScore)}
-                      detail={`級分 ${formatMaybeNumber(latestGrade)} · 五標 ${benchmarkSummary}`}
-                      comparison={buildComparison(latestScore, baseline, previous ? "比上次" : "比平均", "分")}
-                    />
+                    <article key={subject.key} className="border border-line bg-white p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-bold">{subject.label}</h3>
+                        <span className="border border-primary bg-[#eff4ff] px-2.5 py-1 font-bold text-primary">
+                          {getBenchmarkBand(latest, subject.key, latestGrade)}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-muted">本次級分</p>
+                      <strong className="num-display block text-3xl text-primary">{formatMaybeNumber(latestGrade)}</strong>
+                      <p className={`mt-2 font-bold ${
+                        gradeChange === null ? "text-muted" :
+                        gradeChange > 0 ? "text-success" :
+                        gradeChange < 0 ? "text-danger" : "text-muted"
+                      }`}>
+                        {gradeChange === null
+                          ? "無前次級分可比較"
+                          : gradeChange > 0
+                            ? `較上次進步 ${formatScore(gradeChange)} 級分`
+                            : gradeChange < 0
+                              ? `較上次退步 ${formatScore(Math.abs(gradeChange))} 級分`
+                              : "與上次級分持平"}
+                      </p>
+                    </article>
                   );
                 })}
               </div>
@@ -503,38 +603,48 @@ function ScorePageContent() {
         </aside>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="mobile-panel border border-line bg-white p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">長期成長趨勢</h2>
-              <p className="mt-1 text-muted">依各科級分加總，觀察歷次總級分變化。</p>
-            </div>
-            <span className="border border-primary bg-primary px-4 py-2 font-bold text-white">總級分曲線</span>
-          </div>
-          <div className="mt-4">
+      <section className="mobile-panel mt-5 border border-line bg-white p-5">
+        <h2 className="text-xl font-bold">長期成長趨勢</h2>
+        <p className="mt-1 text-muted">依每次考試的各科分數觀察成長，圓餅圖呈現最近一次各題型得分比例。</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {SUBJECTS.map((subject) => {
+            const points = records
+              .map((record) => ({
+                date: record.examDate,
+                value: record[subject.scoreKey as keyof ExamRecordDTO] as number | null,
+              }))
+              .filter((point): point is { date: string; value: number } => Number.isFinite(point.value));
+            return (
+              <article key={subject.key} className="border border-line bg-[#f9fafb] p-3.5">
+                <h3 className="font-bold">{subject.label}成長趨勢</h3>
+                <div className="mt-2">
+                  <TrendChart points={points} color="#3563e9" emptyMessage={`尚無${subject.label}分數資料。`} />
+                </div>
+                <div className="mt-3">
+                  <ScoreBreakdownChart
+                    title={subject.label}
+                    items={subject.components.map(({ key, label }) => {
+                      const value = latest ? latest[key as keyof ExamRecordDTO] as number | null : null;
+                      return {
+                        label: subject.key === "chinese" && key === "chineseComprehensiveScore" ? `${label}折算` : label,
+                        value: Number.isFinite(value)
+                          ? (value as number) / (subject.key === "chinese" && key === "chineseComprehensiveScore" ? 2 : 1)
+                          : null,
+                      };
+                    })}
+                  />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <div className="mt-5 border-t pt-4">
+          <h3 className="font-bold">總級分長期趨勢</h3>
+          <div className="mt-2">
             <TrendChart points={trendPoints} color="#20a16b" />
           </div>
-        </section>
-
-        <section className="mobile-panel border border-line bg-white p-5">
-          <h2 className="text-xl font-bold">各科戰力分佈</h2>
-          <p className="mt-1 text-muted">以平均表現與最近一次表現疊圖，比較哪一科最需要補強。</p>
-          <div className="mt-4">
-            <RadarChart averageValues={averageValues} latestValues={latestValues} />
-          </div>
-          <div className="mt-3.5 flex flex-wrap gap-4 text-muted">
-            <span>
-              <i className="mr-2 inline-block h-3 w-3 rounded-full bg-[#3563e9]" />
-              平均表現
-            </span>
-            <span>
-              <i className="mr-2 inline-block h-3 w-3 rounded-full bg-[#20a16b]" />
-              最近一次
-            </span>
-          </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       <section className="mobile-panel mt-5 border border-line bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
