@@ -152,9 +152,7 @@ function EnglishPageContent() {
   const trendYAxisMin = 0;
   const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
   const trendCapLine =
-    trendType === "cloze" && selectedType
-      ? { value: selectedType.maxScore, label: `滿分 ${selectedType.maxScore}`, color: "#c22a6e", dashArray: "2 4" }
-      : null;
+    trendType === "cloze" && selectedType ? { value: selectedType.maxScore, label: `滿分 ${selectedType.maxScore}` } : null;
   const trendPrediction = (() => {
     if (trendType === "all") {
       const perTypePredictions = ENGLISH_PRACTICE_TYPES.map((type) => ({

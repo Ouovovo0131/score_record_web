@@ -298,8 +298,6 @@ export function predictNextValue(values: number[]): number | null {
   const meanX = (values.length - 1) / 2;
   const meanY = average(values);
   const denominator = values.reduce((sum, _, index) => sum + (index - meanX) ** 2, 0);
-  if (denominator === 0) return values[values.length - 1];
-
   const slope = values.reduce((sum, value, index) => sum + (index - meanX) * (value - meanY), 0) / denominator;
   return meanY + slope * (values.length - meanX);
 }
