@@ -41,6 +41,7 @@ function ScorePageContent() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<ExamRecordDTO | null>(null);
   const [activeMetric, setActiveMetric] = useState<MetricKey>("totalScore");
   const [showGoalForm, setShowGoalForm] = useState(false);
 
@@ -168,7 +169,17 @@ function ScorePageContent() {
     setGoal(goalData);
   }
 
-  async function handleAddRecord(formEl: HTMLFormElement) {
+  function openAddRecordModal() {
+    setEditingRecord(null);
+    setShowModal(true);
+  }
+
+  function closeRecordModal() {
+    setShowModal(false);
+    setEditingRecord(null);
+  }
+
+  async function handleSaveRecord(formEl: HTMLFormElement, recordId?: string) {
     const formData = new FormData(formEl);
     const toNum = (key: string) => {
       const v = formData.get(key);
@@ -209,21 +220,21 @@ function ScorePageContent() {
       return;
     }
 
-    const res = await fetch("/api/exam-records", {
-      method: "POST",
+    const res = await fetch(recordId ? `/api/exam-records/${recordId}` : "/api/exam-records", {
+      method: recordId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(nextRecord),
     });
 
     if (!res.ok) {
-      setStatus({ text: "新增成績失敗，請稍後再試。", type: "error" });
+      setStatus({ text: recordId ? "更新成績失敗，請稍後再試。" : "新增成績失敗，請稍後再試。", type: "error" });
       return;
     }
 
     await refresh();
     formEl.reset();
-    setShowModal(false);
-    setStatus({ text: "已新增模擬考紀錄。", type: "success" });
+    closeRecordModal();
+    setStatus({ text: recordId ? "已更新模擬考紀錄。" : "已新增模擬考紀錄。", type: "success" });
   }
 
   async function handleDeleteRecord(id: string) {
@@ -284,7 +295,7 @@ function ScorePageContent() {
         </div>
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={openAddRecordModal}
           className="border border-ink bg-ink px-5 py-2.5 font-bold text-white"
         >
           ＋ 新增成績
@@ -569,13 +580,25 @@ function ScorePageContent() {
                       </td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{record.notes || "—"}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRecord(record.id)}
-                          className="bg-danger px-3 py-2 font-bold text-white"
-                        >
-                          刪除
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingRecord(record);
+                              setShowModal(true);
+                            }}
+                            className="border border-line bg-white px-3 py-2 font-bold text-primary"
+                          >
+                            編輯
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRecord(record.id)}
+                            className="bg-danger px-3 py-2 font-bold text-white"
+                          >
+                            刪除
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -587,11 +610,11 @@ function ScorePageContent() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 grid place-items-center">
-          <div className="absolute inset-0 bg-[rgba(14,23,42,0.5)]" onClick={() => setShowModal(false)} />
+          <div className="absolute inset-0 bg-[rgba(14,23,42,0.5)]" onClick={closeRecordModal} />
           <div className="mobile-modal relative max-h-[calc(100vh-36px)] w-[min(1040px,calc(100%-24px))] overflow-auto border border-line bg-white p-6">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-2xl font-bold">新增模擬考紀錄</h2>
-              <button type="button" onClick={() => setShowModal(false)} aria-label="關閉" className="text-2xl">
+              <h2 className="text-2xl font-bold">{editingRecord ? "編輯模擬考紀錄" : "新增模擬考紀錄"}</h2>
+              <button type="button" onClick={closeRecordModal} aria-label="關閉" className="text-2xl">
                 ×
               </button>
             </div>
@@ -600,25 +623,25 @@ function ScorePageContent() {
               className="mt-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                handleAddRecord(e.currentTarget);
+                handleSaveRecord(e.currentTarget, editingRecord?.id);
               }}
             >
               <div className="mobile-modal-grid grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="flex flex-col gap-2 text-muted">
                   考試名稱
-                  <input name="examName" type="text" placeholder="例：第三次模擬考" required className="border border-line px-3 py-2.5" />
+                  <input name="examName" type="text" defaultValue={editingRecord?.examName ?? ""} placeholder="例：第三次模擬考" required className="border border-line px-3 py-2.5" />
                 </label>
                 <label className="flex flex-col gap-2 text-muted">
                   考試日期
-                  <input name="examDate" type="date" required className="border border-line px-3 py-2.5" />
+                  <input name="examDate" type="date" defaultValue={editingRecord?.examDate ?? ""} required className="border border-line px-3 py-2.5" />
                 </label>
                 <label className="flex flex-col gap-2 text-muted">
                   總分
-                  <input name="totalScore" type="number" min={0} max={500} step={0.1} placeholder="例：278.5" required className="border border-line px-3 py-2.5" />
+                  <input name="totalScore" type="number" min={0} max={500} step={0.1} defaultValue={editingRecord?.totalScore ?? ""} placeholder="例：278.5" required className="border border-line px-3 py-2.5" />
                 </label>
                 <label className="flex flex-col gap-2 text-muted">
                   總級分
-                  <input name="totalGrade" type="number" min={0} max={75} step={1} placeholder="可不填，系統會嘗試加總" className="border border-line px-3 py-2.5" />
+                  <input name="totalGrade" type="number" min={0} max={75} step={1} defaultValue={editingRecord?.totalGrade ?? ""} placeholder="可不填，系統會嘗試加總" className="border border-line px-3 py-2.5" />
                 </label>
               </div>
 
@@ -634,11 +657,11 @@ function ScorePageContent() {
                     <h3 className="mb-2 font-bold">{s.label}</h3>
                     <label className="flex flex-col gap-1.5 text-sm text-muted">
                       分數
-                      <input name={s.scoreName} type="number" min={0} max={100} step={0.1} className="border border-line px-2.5 py-2" />
+                      <input name={s.scoreName} type="number" min={0} max={100} step={0.1} defaultValue={editingRecord?.[s.scoreName as keyof ExamRecordDTO] as number | null ?? ""} className="border border-line px-2.5 py-2" />
                     </label>
                     <label className="mt-2 flex flex-col gap-1.5 text-sm text-muted">
                       級分
-                      <input name={s.gradeName} type="number" min={0} max={15} step={1} className="border border-line px-2.5 py-2" />
+                      <input name={s.gradeName} type="number" min={0} max={15} step={1} defaultValue={editingRecord?.[s.gradeName as keyof ExamRecordDTO] as number | null ?? ""} className="border border-line px-2.5 py-2" />
                     </label>
                   </article>
                 ))}
@@ -646,19 +669,19 @@ function ScorePageContent() {
 
               <label className="mt-4 flex flex-col gap-2 text-muted">
                 失分原因標籤
-                <input name="reviewTags" type="text" placeholder="例：#粗心 #觀念不熟 #寫不完" className="border border-line px-3 py-2.5" />
+                <input name="reviewTags" type="text" defaultValue={editingRecord?.reviewTags.join(" ") ?? ""} placeholder="例：#粗心 #觀念不熟 #寫不完" className="border border-line px-3 py-2.5" />
               </label>
 
               <label className="mt-4 flex flex-col gap-2 text-muted">
                 備註
-                <textarea name="notes" rows={4} placeholder="可記錄這次失誤、策略、讀書狀況或臨場表現" className="min-h-24 border border-line px-3 py-2.5" />
+                <textarea name="notes" rows={4} defaultValue={editingRecord?.notes ?? ""} placeholder="可記錄這次失誤、策略、讀書狀況或臨場表現" className="min-h-24 border border-line px-3 py-2.5" />
               </label>
 
               <div className="mt-4 flex flex-wrap gap-3">
                 <button type="submit" className="border border-ink bg-ink px-4 py-2.5 font-bold text-white">
-                  儲存成績
+                  {editingRecord ? "確定更新" : "儲存成績"}
                 </button>
-                <button type="button" onClick={() => setShowModal(false)} className="border border-line bg-white px-4 py-2.5 font-bold text-primary">
+                <button type="button" onClick={closeRecordModal} className="border border-line bg-white px-4 py-2.5 font-bold text-primary">
                   取消
                 </button>
               </div>
