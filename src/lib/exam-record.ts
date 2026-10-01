@@ -21,12 +21,6 @@ function recordValues(record: Record<string, number | null | undefined>) {
   SCIENCE_DETAIL_SCORES.forEach(({ key, legacyKey }) => {
     values[key] = toNumberOrNull(record[key]) ?? toNumberOrNull(record[legacyKey]);
   });
-  if (values.scienceMixedScore === null) {
-    const legacyDetails = SCIENCE_DETAIL_SCORES.map(({ legacyKey }) => toNumberOrNull(record[legacyKey]));
-    if (legacyDetails.some((score) => score !== null)) {
-      values.scienceMixedScore = legacyDetails.reduce<number>((sum, score) => sum + (score ?? 0), 0);
-    }
-  }
   for (const subject of SUBJECTS) {
     values[subject.scoreKey] = toNumberOrNull(record[subject.scoreKey]);
     values[subject.scoreKey] = calculateSubjectScore(values, subject);
@@ -45,15 +39,18 @@ export function validateExamRecordData(body: Record<string, unknown>): string | 
   if (Number(values.scienceMixedScore) > 56) return "自然混合題不可超過 56 分。";
   const scienceDetailsEntered = SCIENCE_DETAIL_SCORES.some(({ key }) => values[key] !== null);
   const scienceDetailsComplete = SCIENCE_DETAIL_SCORES.every(({ key }) => values[key] !== null);
+  const scienceChoiceAndMixedEntered =
+    values.scienceChoiceScore !== null && values.scienceMixedScore !== null;
   if (
     scienceDetailsEntered &&
     scienceDetailsComplete &&
-    values.scienceMixedScore !== null &&
+    scienceChoiceAndMixedEntered &&
     Math.abs(
-      SCIENCE_DETAIL_SCORES.reduce((sum, { key }) => sum + (values[key] ?? 0), 0) - values.scienceMixedScore
+      SCIENCE_DETAIL_SCORES.reduce((sum, { key }) => sum + (values[key] ?? 0), 0) -
+        (values.scienceChoiceScore + values.scienceMixedScore)
     ) > 0.001
   ) {
-    return "物理、化學、生物及地球科學得分合計需等於自然混合題分數。";
+    return "物理、化學、生物及地球科學整份考卷得分合計需等於自然選擇題與混合題分數總和。";
   }
   if (Number(values.scienceScore) > 128) return "自然分數不可超過 128 分。";
   for (const key of [...SUBJECTS.map(({ gradeKey }) => gradeKey), ...BENCHMARK_KEYS]) {

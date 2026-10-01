@@ -597,10 +597,15 @@ function ScorePageContent() {
                               ))}
                               {subject.key === "science" && SCIENCE_DETAIL_SCORES.map(({ key, label }) => (
                                 <label key={key} className="flex items-center justify-between gap-2 text-xs text-muted">
-                                  {label}混合題
+                                  {label}整份考卷
                                   <input form={formId} name={key} type="number" min={0} step={0.1} defaultValue={record[key as keyof ExamRecordDTO] as number | null ?? ""} className="w-20 border border-line px-1.5 py-1" />
                                 </label>
                               ))}
+                              {subject.key === "science" && (
+                                <p className="text-xs text-muted">
+                                  四科得分合計需等於選擇題與混合題分數總和。
+                                </p>
+                              )}
                               <label className="flex items-center justify-between gap-2 text-xs font-bold text-muted">
                                 級分
                                 <input form={formId} name={subject.gradeKey} type="number" min={0} max={15} step={1} defaultValue={record[subject.gradeKey as keyof ExamRecordDTO] as number | null ?? ""} className="w-20 border border-line px-1.5 py-1" />
@@ -716,10 +721,15 @@ function ScorePageContent() {
                       ))}
                       {subject.key === "science" && SCIENCE_DETAIL_SCORES.map(({ key, label }) => (
                         <label key={key} className="flex flex-col gap-1.5 text-sm text-muted">
-                          {label}混合題得分
+                          {label}整份考卷得分
                           <input name={key} type="number" min={0} step={0.1} className="border border-line px-2.5 py-2" />
                         </label>
                       ))}
+                      {subject.key === "science" && (
+                        <p className="col-span-full text-sm text-muted">
+                          物理、化學、生物、地球科學為整份考卷分類；四科得分合計需等於選擇題與混合題分數總和。
+                        </p>
+                      )}
                       <label className="flex flex-col gap-1.5 text-sm text-muted">
                         級分
                         <input name={subject.gradeKey} type="number" min={0} max={15} step={1} className="border border-line px-2.5 py-2" />
