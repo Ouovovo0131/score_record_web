@@ -155,6 +155,7 @@ export function MultiTrendChart({
   const range = Math.max(axisMax - axisMin, 10);
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
+  const dateLabelInterval = Math.max(1, Math.ceil(timeline.length / 8));
   const gridSteps = [0, 1, 2, 3, 4];
   const yFor = (value: number) => padding.top + innerHeight - ((value - axisMin) / range) * innerHeight;
   const xFor = (point: TrendPoint) => {
@@ -269,9 +270,11 @@ export function MultiTrendChart({
               {plotted.map((p, index) => (
                 <g key={index}>
                   <circle cx={p.x} cy={p.y} r={5.5} fill="#ffffff" stroke={s.color} strokeWidth={3} />
-                  <text x={p.x} y={height - padding.bottom + 22} fill="#5d6880" fontSize={12} textAnchor="middle">
-                    {compactDate(p.point.date)}
-                  </text>
+                  {(pointIndices.get(p.point) ?? 0) % dateLabelInterval === 0 && (
+                    <text x={p.x} y={height - padding.bottom + 22} fill="#5d6880" fontSize={12} textAnchor="middle">
+                      {compactDate(p.point.date)}
+                    </text>
+                  )}
                 </g>
               ))}
             </g>
