@@ -149,6 +149,8 @@ function EnglishPageContent() {
     trendSeries.map((series) => [series.key, predictNextValue(series.points.map((p) => p.value))])
   );
   const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
+  const miaomiaoType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === "miaomiao")!;
+  const clozeType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === "cloze")!;
   const trendYAxisMin = 0;
   const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
   const trendCapLine =
@@ -157,14 +159,18 @@ function EnglishPageContent() {
       : null;
   const trendPrediction = (() => {
     if (trendType === "all") {
-      const miaomiaoPrediction = typePredictions.get("miaomiao");
-      const clozePrediction = typePredictions.get("cloze");
+      const miaomiaoPrediction = typePredictions.get("miaomiao") ?? null;
+      const clozePrediction = typePredictions.get("cloze") ?? null;
       if (miaomiaoPrediction == null && clozePrediction == null) return null;
-      const miaomiao = miaomiaoPrediction ?? 0;
-      const cloze = clozePrediction ?? 0;
+      // When one type has no history yet, omit it from the label (instead of
+      // silently showing it as "0") so the total isn't misread as "this type
+      // is predicted to score zero".
+      const total = (miaomiaoPrediction ?? 0) + (clozePrediction ?? 0);
+      const miaomiaoText = miaomiaoPrediction == null ? "尚無資料" : `${formatScore(miaomiaoPrediction)} 分`;
+      const clozeText = clozePrediction == null ? "尚無資料" : `${formatScore(clozePrediction)} 分`;
       return {
-        value: miaomiao + cloze,
-        label: `預測總分：${formatScore(miaomiao + cloze)} 分（妙妙卷 ${formatScore(miaomiao)} + 克漏字 ${formatScore(cloze)}）`,
+        value: total,
+        label: `預測總分：${formatScore(total)} 分（妙妙卷 ${miaomiaoText} + 克漏字 ${clozeText}）`,
       };
     }
     const value = typePredictions.get(trendType);
@@ -377,7 +383,7 @@ function EnglishPageContent() {
         </div>
         <p className="mt-1 text-muted">
           {trendType === "all"
-            ? `妙妙卷（藍，滿分 ${ENGLISH_PRACTICE_TYPES[0].maxScore}）與克漏字（綠，滿分 ${ENGLISH_PRACTICE_TYPES[1].maxScore}）分開繪製，Y 軸為兩者滿分相加（0–${ENGLISH_TOTAL_MAX_SCORE}）。`
+            ? `妙妙卷（藍，滿分 ${miaomiaoType.maxScore}）與克漏字（綠，滿分 ${clozeType.maxScore}）分開繪製，Y 軸為兩者滿分相加（0–${ENGLISH_TOTAL_MAX_SCORE}）。`
             : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分。`}
           {visibleTrendCount === 1 ? " 資料筆數不足以回歸，預測將以最近一次成績作為近似值。" : ""}
         </p>
