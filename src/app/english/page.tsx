@@ -143,36 +143,37 @@ function EnglishPageContent() {
   // Each practice type grows at its own pace, so the next-score prediction is
   // computed independently per type (linear regression over that type's own
   // history) instead of regressing on a single mixed/combined series. The
-  // "all" view's predicted total is simply the sum of the two per-type
+  // "all" view's predicted total is simply the sum of all per-type
   // predictions.
   const typePredictions = new Map(
     trendSeries.map((series) => [series.key, predictNextValue(series.points.map((p) => p.value))])
   );
   const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
-  const miaomiaoType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === "miaomiao")!;
-  const clozeType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === "cloze")!;
   const trendYAxisMin = 0;
   const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
   const trendCapLine =
-    trendType === "cloze"
-      ? { value: selectedType!.maxScore, label: `滿分 ${selectedType!.maxScore}`, color: "#c22a6e", dashArray: "2 4" }
+    trendType === "cloze" && selectedType
+      ? { value: selectedType.maxScore, label: `滿分 ${selectedType.maxScore}`, color: "#c22a6e", dashArray: "2 4" }
       : null;
   const trendPrediction = (() => {
     if (trendType === "all") {
-      const miaomiaoPrediction = typePredictions.get("miaomiao") ?? null;
-      const clozePrediction = typePredictions.get("cloze") ?? null;
-      if (miaomiaoPrediction == null && clozePrediction == null) return null;
-      const isPartial = miaomiaoPrediction == null || clozePrediction == null;
-      // When one type has no history yet, the "total" is really just the
-      // other type's prediction (adding 0 for the missing side doesn't
+      const perTypePredictions = ENGLISH_PRACTICE_TYPES.map((type) => ({
+        type,
+        prediction: typePredictions.get(type.key) ?? null,
+      }));
+      if (perTypePredictions.every(({ prediction }) => prediction == null)) return null;
+      const isPartial = perTypePredictions.some(({ prediction }) => prediction == null);
+      // When a type has no history yet, the "total" is really just the sum
+      // of the available types (adding 0 for the missing side doesn't
       // change the plotted value) — but we must label it as a partial total
       // so it isn't misread as "this type is predicted to score zero".
-      const total = (miaomiaoPrediction ?? 0) + (clozePrediction ?? 0);
-      const miaomiaoText = miaomiaoPrediction == null ? "尚無資料" : `${formatScore(miaomiaoPrediction)} 分`;
-      const clozeText = clozePrediction == null ? "尚無資料" : `${formatScore(clozePrediction)} 分`;
+      const total = perTypePredictions.reduce((sum, { prediction }) => sum + (prediction ?? 0), 0);
+      const breakdown = perTypePredictions
+        .map(({ type, prediction }) => `${type.label} ${prediction == null ? "尚無資料" : `${formatScore(prediction)} 分`}`)
+        .join(" + ");
       return {
         value: total,
-        label: `${isPartial ? "預測總分（部分資料）" : "預測總分"}：${formatScore(total)} 分（妙妙卷 ${miaomiaoText} + 克漏字 ${clozeText}）`,
+        label: `${isPartial ? "預測總分（部分資料）" : "預測總分"}：${formatScore(total)} 分（${breakdown}）`,
       };
     }
     const value = typePredictions.get(trendType);
@@ -385,7 +386,7 @@ function EnglishPageContent() {
         </div>
         <p className="mt-1 text-muted">
           {trendType === "all"
-            ? `妙妙卷（藍，滿分 ${miaomiaoType.maxScore}）與克漏字（綠，滿分 ${clozeType.maxScore}）分開繪製，Y 軸為兩者滿分相加（0–${ENGLISH_TOTAL_MAX_SCORE}）。`
+            ? `${ENGLISH_PRACTICE_TYPES.map((type) => `${type.label}（滿分 ${type.maxScore}）`).join("與")}分開繪製，Y 軸為各題型滿分相加（0–${ENGLISH_TOTAL_MAX_SCORE}）。`
             : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分。`}
           {visibleTrendCount === 1 ? " 資料筆數不足以回歸，預測將以最近一次成績作為近似值。" : ""}
         </p>
