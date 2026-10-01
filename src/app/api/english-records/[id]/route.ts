@@ -48,9 +48,3 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   return NextResponse.json(serialize(record));
 }
-
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  await prisma.englishRecord.delete({ where: { id } });
-  return NextResponse.json({ success: true });
-}

@@ -169,7 +169,7 @@ export function MultiTrendChart({
   };
   return (
     <div className="mobile-chart min-h-[320px] border border-line bg-white">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="總分成長曲線與下一次預測" className="block h-[320px] w-full">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="英文練習成長曲線與各類型下次預測" className="block h-[320px] w-full">
         <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
         {gridSteps.map((step) => {
@@ -226,7 +226,7 @@ export function MultiTrendChart({
             </text>
           </>
         )}
-        {referenceLines.map((line) => (
+        {referenceLines.map((line, index) => (
           <g key={`${line.label}-${line.value}`}>
             <line
               x1={padding.left}
@@ -238,12 +238,12 @@ export function MultiTrendChart({
               strokeDasharray="2 4"
             />
             <text
-              x={padding.left + 5}
+              x={index === 0 ? padding.left + 5 : width - padding.right - 5}
               y={yFor(line.value) - 8}
               fill={line.color}
               fontSize={12}
               fontWeight={700}
-              textAnchor="start"
+              textAnchor={index === 0 ? "start" : "end"}
             >
               {line.label}
             </text>
@@ -278,6 +278,7 @@ export function MultiTrendChart({
           );
         })}
         {predictions.map((prediction, index) => {
+          const predictionX = padding.left + innerWidth;
           const x = predictionX - 8 + index * 16;
           const boundedValue = Math.min(Math.max(prediction.value, axisMin), axisMax);
           const y = yFor(boundedValue);

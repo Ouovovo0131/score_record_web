@@ -2,7 +2,7 @@
 // verification — see the accepted tradeoff note in the previous version.
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { buildExamRecordData, serializeExamRecord } from "@/lib/exam-record";
+import { buildExamRecordData, serializeExamRecord, validateExamRecordData } from "@/lib/exam-record";
 
 const DEFAULT_USER_EMAIL = process.env.NEXT_PUBLIC_ALLOWED_EMAIL || "default@example.com";
 
@@ -16,6 +16,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
+  const validationError = validateExamRecordData(body);
+  if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   const data = buildExamRecordData(body);
   const record = await prisma.examRecord.create({
     data: { ...data, userEmail: DEFAULT_USER_EMAIL },

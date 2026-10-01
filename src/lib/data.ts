@@ -75,7 +75,7 @@ export function calculateSubjectScore(
   if (subject.key === "chinese") {
     return ((record.chineseComprehensiveScore ?? 0) / 2) + (record.chineseWritingScore ?? 0);
   }
-  return values.reduce((sum, value) => sum + (Number.isFinite(value) ? (value as number) : 0), 0);
+  return values.reduce<number>((sum, value) => sum + (Number.isFinite(value) ? (value as number) : 0), 0);
 }
 
 export function calculateTotalGrade(record: Record<string, number | null | undefined>): number | null {

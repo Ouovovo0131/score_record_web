@@ -16,8 +16,6 @@ function formatMaybeNumber(value: number | null | undefined): string {
   return Number.isFinite(value) ? formatScore(value as number) : "—";
 }
 
-type MetricKey = "totalGrade";
-
 type GoalGradeKey = "targetChineseGrade" | "targetEnglishGrade" | "targetMathGrade" | "targetSocialGrade" | "targetScienceGrade";
 
 const GOAL_KEY_BY_SUBJECT: Record<string, GoalGradeKey> = {
@@ -34,7 +32,6 @@ function ScorePageContent() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [activeMetric] = useState<MetricKey>("totalGrade");
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [showGoalForm, setShowGoalForm] = useState(false);
 
@@ -488,7 +485,7 @@ function ScorePageContent() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">長期成長趨勢</h2>
-              <p className="mt-1 text-muted">在總分與總級分之間切換，觀察哪個指標更穩定地成長。</p>
+              <p className="mt-1 text-muted">依各科級分加總，觀察歷次總級分變化。</p>
             </div>
             <span className="border border-primary bg-primary px-4 py-2 font-bold text-white">總級分曲線</span>
           </div>
@@ -549,7 +546,7 @@ function ScorePageContent() {
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={4 + SUBJECTS.length + RANK_FIELDS.length} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={6 + SUBJECTS.length + RANK_FIELDS.length} className="px-3 py-6 text-center text-muted">
                     目前還沒有任何模擬考紀錄。
                   </td>
                 </tr>
