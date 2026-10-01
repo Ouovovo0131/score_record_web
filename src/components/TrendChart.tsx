@@ -21,7 +21,7 @@ export function TrendChart({
 }) {
   if (!points.length) {
     return (
-      <div className="grid min-h-[320px] place-items-center border border-line bg-white p-5 text-center text-muted">
+      <div className="mobile-chart grid min-h-[320px] place-items-center border border-line bg-white p-5 text-center text-muted">
         {emptyMessage}
       </div>
     );
@@ -46,7 +46,7 @@ export function TrendChart({
   const gridSteps = [0, 1, 2, 3, 4];
 
   return (
-    <div className="min-h-[320px] border border-line bg-white">
+    <div className="mobile-chart min-h-[320px] border border-line bg-white">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="成長曲線" className="block h-[320px] w-full">
         <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
@@ -131,7 +131,7 @@ export function MultiTrendChart({
   const allValues = series.flatMap((s) => s.points.map((p) => p.value));
   if (!allValues.length) {
     return (
-      <div className="grid min-h-[320px] place-items-center border border-line bg-white p-5 text-center text-muted">
+      <div className="mobile-chart grid min-h-[320px] place-items-center border border-line bg-white p-5 text-center text-muted">
         {emptyMessage}
       </div>
     );
@@ -183,7 +183,7 @@ export function MultiTrendChart({
         : predictionY - 12;
 
   return (
-    <div className="min-h-[320px] border border-line bg-white">
+    <div className="mobile-chart min-h-[320px] border border-line bg-white">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="總分成長曲線與下一次預測" className="block h-[320px] w-full">
         <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
