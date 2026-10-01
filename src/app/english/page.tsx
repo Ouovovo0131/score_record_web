@@ -162,15 +162,17 @@ function EnglishPageContent() {
       const miaomiaoPrediction = typePredictions.get("miaomiao") ?? null;
       const clozePrediction = typePredictions.get("cloze") ?? null;
       if (miaomiaoPrediction == null && clozePrediction == null) return null;
-      // When one type has no history yet, omit it from the label (instead of
-      // silently showing it as "0") so the total isn't misread as "this type
-      // is predicted to score zero".
+      const isPartial = miaomiaoPrediction == null || clozePrediction == null;
+      // When one type has no history yet, the "total" is really just the
+      // other type's prediction (adding 0 for the missing side doesn't
+      // change the plotted value) — but we must label it as a partial total
+      // so it isn't misread as "this type is predicted to score zero".
       const total = (miaomiaoPrediction ?? 0) + (clozePrediction ?? 0);
       const miaomiaoText = miaomiaoPrediction == null ? "尚無資料" : `${formatScore(miaomiaoPrediction)} 分`;
       const clozeText = clozePrediction == null ? "尚無資料" : `${formatScore(clozePrediction)} 分`;
       return {
         value: total,
-        label: `預測總分：${formatScore(total)} 分（妙妙卷 ${miaomiaoText} + 克漏字 ${clozeText}）`,
+        label: `${isPartial ? "預測總分（部分資料）" : "預測總分"}：${formatScore(total)} 分（妙妙卷 ${miaomiaoText} + 克漏字 ${clozeText}）`,
       };
     }
     const value = typePredictions.get(trendType);
