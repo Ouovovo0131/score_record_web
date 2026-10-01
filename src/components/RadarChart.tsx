@@ -28,7 +28,7 @@ export function RadarChart({
 
   if (!validAverage && !validLatest) {
     return (
-      <div className="grid min-h-[320px] place-items-center border border-line bg-white p-5 text-center text-muted">
+      <div className="mobile-chart grid min-h-[320px] place-items-center border border-line bg-white p-5 text-center text-muted">
         至少需要 1 筆含科目分數的紀錄。
       </div>
     );
@@ -42,7 +42,7 @@ export function RadarChart({
   const levels = [20, 40, 60, 80, 100];
 
   return (
-    <div className="min-h-[320px] border border-line bg-white">
+    <div className="mobile-chart min-h-[320px] border border-line bg-white">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="各科戰力雷達圖" className="block h-[320px] w-full">
         {levels.map((level) => {
           const points = SUBJECTS.map((_, index) => {

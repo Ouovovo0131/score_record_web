@@ -63,8 +63,8 @@ export default function CountdownPage() {
   }
 
   return (
-    <div className="mx-auto w-[min(1240px,calc(100%-32px))] py-8 pb-14">
-      <div className="mb-6 border-b-4 border-ink bg-white py-5">
+    <div className="mobile-page">
+      <div className="mobile-page-header mb-6 border-b-4 border-ink bg-white py-5">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">
           Exam Schedule Countdown
         </p>
@@ -75,20 +75,20 @@ export default function CountdownPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
-        <section className="border border-line bg-white p-5 md:col-span-12">
+        <section className="mobile-panel border border-line bg-white p-5 md:col-span-12">
           <h2 className="text-xl font-bold">最近一場考試</h2>
           <p className="mt-1 text-muted">已結束的考試會保留在下方考程列表中。</p>
 
           <div className="mt-4 bg-ink p-5 text-white">
             <p className="mb-4 text-lg font-bold">{title}</p>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="mobile-countdown-grid grid grid-cols-4 gap-3">
               {[
                 { value: days, label: "天" },
                 { value: hours, label: "時" },
                 { value: minutes, label: "分" },
                 { value: seconds, label: "秒" },
               ].map((unit) => (
-                <div key={unit.label} className="bg-white/15 p-3 text-center">
+                <div key={unit.label} className="mobile-countdown-unit bg-white/15 p-3 text-center">
                   <strong className="num-display block text-3xl sm:text-4xl">{unit.value}</strong>
                   <span>{unit.label}</span>
                 </div>
@@ -98,7 +98,7 @@ export default function CountdownPage() {
           </div>
         </section>
 
-        <section className="border border-line bg-white p-5 md:col-span-12">
+        <section className="mobile-panel border border-line bg-white p-5 md:col-span-12">
           <h2 className="text-xl font-bold">固定考程列表</h2>
           <p className="mt-1 text-muted">目前只顯示你提供的考試，不提供新增或編輯功能。</p>
 
