@@ -39,12 +39,11 @@ export function validateExamRecordData(body: Record<string, unknown>): string | 
   if (Number(values.scienceMixedScore) > 56) return "自然混合題不可超過 56 分。";
   const scienceDetailsEntered = SCIENCE_DETAIL_SCORES.some(({ key }) => values[key] !== null);
   const scienceDetailsComplete = SCIENCE_DETAIL_SCORES.every(({ key }) => values[key] !== null);
-  const scienceChoiceAndMixedEntered =
-    values.scienceChoiceScore !== null && values.scienceMixedScore !== null;
   if (
     scienceDetailsEntered &&
     scienceDetailsComplete &&
-    scienceChoiceAndMixedEntered &&
+    values.scienceChoiceScore !== null &&
+    values.scienceMixedScore !== null &&
     Math.abs(
       SCIENCE_DETAIL_SCORES.reduce((sum, { key }) => sum + (values[key] ?? 0), 0) -
         (values.scienceChoiceScore + values.scienceMixedScore)
