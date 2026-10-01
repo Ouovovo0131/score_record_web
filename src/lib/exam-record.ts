@@ -1,5 +1,5 @@
 import type { ExamRecord, Prisma } from "@prisma/client";
-import { BENCHMARKS, SUBJECTS, calculateSubjectScore, calculateTotalGrade } from "@/lib/data";
+import { BENCHMARKS, SCIENCE_DETAIL_SCORES, SUBJECTS, calculateSubjectScore, calculateTotalGrade } from "@/lib/data";
 
 const COMPONENT_KEYS = SUBJECTS.flatMap((subject) => subject.components.map(({ key }) => key));
 const BENCHMARK_KEYS = SUBJECTS.flatMap((subject) =>
@@ -18,6 +18,15 @@ function recordValues(record: Record<string, number | null | undefined>) {
   for (const key of [...COMPONENT_KEYS, ...SUBJECTS.map(({ gradeKey }) => gradeKey), ...BENCHMARK_KEYS, ...RANK_KEYS]) {
     values[key] = toNumberOrNull(record[key]);
   }
+  SCIENCE_DETAIL_SCORES.forEach(({ key, legacyKey }) => {
+    values[key] = toNumberOrNull(record[key]) ?? toNumberOrNull(record[legacyKey]);
+  });
+  if (values.scienceMixedScore === null) {
+    const legacyDetails = SCIENCE_DETAIL_SCORES.map(({ legacyKey }) => toNumberOrNull(record[legacyKey]));
+    if (legacyDetails.some((score) => score !== null)) {
+      values.scienceMixedScore = legacyDetails.reduce((sum, score) => sum + (score ?? 0), 0);
+    }
+  }
   for (const subject of SUBJECTS) {
     values[subject.scoreKey] = toNumberOrNull(record[subject.scoreKey]);
     values[subject.scoreKey] = calculateSubjectScore(values, subject);
@@ -27,13 +36,25 @@ function recordValues(record: Record<string, number | null | undefined>) {
 
 export function validateExamRecordData(body: Record<string, unknown>): string | null {
   const values = recordValues(body as Record<string, number | null | undefined>);
-  if (COMPONENT_KEYS.some((key) => values[key] !== null && values[key] < 0)) return "分數不可小於 0。";
+  if ([...COMPONENT_KEYS, ...SCIENCE_DETAIL_SCORES.map(({ key }) => key)].some((key) => values[key] !== null && values[key] < 0)) {
+    return "分數不可小於 0。";
+  }
   if (Number(values.englishScore) > 100) return "英文分數不可超過 100 分。";
   if (Number(values.mathScore) > 100) return "數學分數不可超過 100 分。";
   if (Number(values.scienceChoiceScore) > 72) return "自然選擇題不可超過 72 分。";
-  const scienceNonChoiceScore = ["physicsNonChoiceScore", "chemistryNonChoiceScore", "biologyNonChoiceScore", "earthScienceNonChoiceScore"]
-    .reduce((sum, key) => sum + (values[key] ?? 0), 0);
-  if (scienceNonChoiceScore > 56) return "自然非選擇題合計不可超過 56 分。";
+  if (Number(values.scienceMixedScore) > 56) return "自然混合題不可超過 56 分。";
+  const scienceDetailsEntered = SCIENCE_DETAIL_SCORES.some(({ key }) => values[key] !== null);
+  const scienceDetailsComplete = SCIENCE_DETAIL_SCORES.every(({ key }) => values[key] !== null);
+  if (
+    scienceDetailsEntered &&
+    scienceDetailsComplete &&
+    values.scienceMixedScore !== null &&
+    Math.abs(
+      SCIENCE_DETAIL_SCORES.reduce((sum, { key }) => sum + (values[key] ?? 0), 0) - values.scienceMixedScore
+    ) > 0.001
+  ) {
+    return "物理、化學、生物及地球科學得分合計需等於自然混合題分數。";
+  }
   if (Number(values.scienceScore) > 128) return "自然分數不可超過 128 分。";
   for (const key of [...SUBJECTS.map(({ gradeKey }) => gradeKey), ...BENCHMARK_KEYS]) {
     if (values[key] !== null && (values[key] < 0 || values[key] > 15)) return "級分需介於 0 到 15 級分。";
@@ -76,9 +97,11 @@ export function serializeExamRecord(record: ExamRecord) {
   delete publicRecord.socialScore;
   delete publicRecord.socialGrade;
   delete publicRecord.userEmail;
+  SCIENCE_DETAIL_SCORES.forEach(({ legacyKey }) => delete publicRecord[legacyKey]);
   const values = recordValues(record as unknown as Record<string, number | null | undefined>);
   return {
     ...publicRecord,
+    ...values,
     ...Object.fromEntries(SUBJECTS.map(({ scoreKey }) => [scoreKey, values[scoreKey]])),
     totalGrade: calculateTotalGrade(values) ?? record.totalGrade,
     examDate: record.examDate.toISOString().slice(0, 10),

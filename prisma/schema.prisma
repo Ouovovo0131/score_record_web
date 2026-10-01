@@ -38,6 +38,11 @@ model ExamRecord {
   mathChoiceScore Float?
   mathMixedScore Float?
   scienceChoiceScore Float?
+  scienceMixedScore Float?
+  physicsScore Float?
+  chemistryScore Float?
+  biologyScore Float?
+  earthScienceScore Float?
   physicsNonChoiceScore Float?
   chemistryNonChoiceScore Float?
   biologyNonChoiceScore Float?

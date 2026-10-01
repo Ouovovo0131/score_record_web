@@ -23,10 +23,11 @@ export interface ExamRecordDTO {
   mathChoiceScore: number | null;
   mathMixedScore: number | null;
   scienceChoiceScore: number | null;
-  physicsNonChoiceScore: number | null;
-  chemistryNonChoiceScore: number | null;
-  biologyNonChoiceScore: number | null;
-  earthScienceNonChoiceScore: number | null;
+  scienceMixedScore: number | null;
+  physicsScore: number | null;
+  chemistryScore: number | null;
+  biologyScore: number | null;
+  earthScienceScore: number | null;
   chineseTopGrade: number | null;
   chineseFrontGrade: number | null;
   chineseAverageGrade: number | null;

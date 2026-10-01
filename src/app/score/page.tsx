@@ -5,7 +5,7 @@ import RequireAuth from "@/components/RequireAuth";
 import { InsightCard, Tag, buildComparison } from "@/components/InsightCard";
 import { TrendChart } from "@/components/TrendChart";
 import { RadarChart } from "@/components/RadarChart";
-import { BENCHMARKS, RANK_FIELDS, SUBJECTS, average, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
+import { BENCHMARKS, RANK_FIELDS, SCIENCE_DETAIL_SCORES, SUBJECTS, average, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
 import type { ExamRecordDTO, GoalDTO } from "@/lib/types";
 
 function getFiniteValues(values: (number | null | undefined)[]): number[] {
@@ -235,6 +235,9 @@ function ScorePageContent() {
       nextRecord[subject.scoreKey] = current[subject.scoreKey as keyof ExamRecordDTO];
       nextRecord[subject.gradeKey] = toNum(subject.gradeKey);
       for (const { key } of subject.components) nextRecord[key] = toNum(key);
+      if (subject.key === "science") {
+        SCIENCE_DETAIL_SCORES.forEach(({ key }) => { nextRecord[key] = toNum(key); });
+      }
       for (const { key } of BENCHMARKS) {
         const benchmarkKey = `${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`;
         nextRecord[benchmarkKey] = toNum(benchmarkKey);
@@ -572,6 +575,12 @@ function ScorePageContent() {
                                   <input form={formId} name={key} type="number" min={0} max={maxScore} step={0.1} defaultValue={record[key as keyof ExamRecordDTO] as number | null ?? ""} className="w-20 border border-line px-1.5 py-1" />
                                 </label>
                               ))}
+                              {subject.key === "science" && SCIENCE_DETAIL_SCORES.map(({ key, label }) => (
+                                <label key={key} className="flex items-center justify-between gap-2 text-xs text-muted">
+                                  {label}混合題
+                                  <input form={formId} name={key} type="number" min={0} step={0.1} defaultValue={record[key as keyof ExamRecordDTO] as number | null ?? ""} className="w-20 border border-line px-1.5 py-1" />
+                                </label>
+                              ))}
                               <label className="flex items-center justify-between gap-2 text-xs font-bold text-muted">
                                 級分
                                 <input form={formId} name={subject.gradeKey} type="number" min={0} max={15} step={1} defaultValue={record[subject.gradeKey as keyof ExamRecordDTO] as number | null ?? ""} className="w-20 border border-line px-1.5 py-1" />
@@ -591,6 +600,11 @@ function ScorePageContent() {
                           ) : (
                             <div>
                               <div>{formatMaybeNumber(record[subject.scoreKey as keyof ExamRecordDTO] as number | null)} 分 / {formatMaybeNumber(record[subject.gradeKey as keyof ExamRecordDTO] as number | null)} 級</div>
+                              {subject.key === "science" && (
+                                <small className="block text-muted">
+                                  {SCIENCE_DETAIL_SCORES.map(({ key, label }) => `${label} ${formatMaybeNumber(record[key as keyof ExamRecordDTO] as number | null)}`).join(" · ")}
+                                </small>
+                              )}
                               <small className="text-muted">{BENCHMARKS.map(({ key, label }) => `${label} ${formatMaybeNumber(record[`${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade` as keyof ExamRecordDTO] as number | null)}`).join(" · ")}</small>
                             </div>
                           )}
@@ -678,6 +692,12 @@ function ScorePageContent() {
                         <label key={key} className="flex flex-col gap-1.5 text-sm text-muted">
                           {label}{maxScore ? `（滿分 ${maxScore}）` : ""}
                           <input name={key} type="number" min={0} max={maxScore} step={0.1} className="border border-line px-2.5 py-2" />
+                        </label>
+                      ))}
+                      {subject.key === "science" && SCIENCE_DETAIL_SCORES.map(({ key, label }) => (
+                        <label key={key} className="flex flex-col gap-1.5 text-sm text-muted">
+                          {label}混合題得分
+                          <input name={key} type="number" min={0} step={0.1} className="border border-line px-2.5 py-2" />
                         </label>
                       ))}
                       <label className="flex flex-col gap-1.5 text-sm text-muted">

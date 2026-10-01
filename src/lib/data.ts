@@ -55,13 +55,17 @@ export const SUBJECTS: Subject[] = [
     gradeKey: "scienceGrade",
     components: [
       { key: "scienceChoiceScore", label: "選擇題", maxScore: 72 },
-      { key: "physicsNonChoiceScore", label: "物理非選擇題" },
-      { key: "chemistryNonChoiceScore", label: "化學非選擇題" },
-      { key: "biologyNonChoiceScore", label: "生物非選擇題" },
-      { key: "earthScienceNonChoiceScore", label: "地科非選擇題" },
+      { key: "scienceMixedScore", label: "混合題", maxScore: 56 },
     ],
   },
 ];
+
+export const SCIENCE_DETAIL_SCORES = [
+  { key: "physicsScore", legacyKey: "physicsNonChoiceScore", label: "物理" },
+  { key: "chemistryScore", legacyKey: "chemistryNonChoiceScore", label: "化學" },
+  { key: "biologyScore", legacyKey: "biologyNonChoiceScore", label: "生物" },
+  { key: "earthScienceScore", legacyKey: "earthScienceNonChoiceScore", label: "地球科學" },
+] as const;
 
 export function calculateSubjectScore(
   record: Record<string, number | null | undefined>,
