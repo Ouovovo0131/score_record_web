@@ -89,12 +89,41 @@ export interface MultiSeries {
   points: TrendPoint[];
 }
 
+export interface CapLine {
+  /** The fixed full-score value to draw the dashed cap line at. */
+  value: number;
+  /** Label text shown next to the cap line, e.g. "滿分 28". */
+  label: string;
+  /** Optional override color/dash style so it stays visually distinct from the max/min lines. */
+  color?: string;
+  dashArray?: string;
+}
+
+export interface PredictionLabel {
+  /** The predicted next score to plot on the right edge of the chart. */
+  value: number;
+  /** Full label text shown next to the prediction marker. */
+  label: string;
+}
+
 export function MultiTrendChart({
   series,
   emptyMessage = "目前沒有資料可顯示。",
+  yAxisMin,
+  yAxisMax,
+  capLine,
+  prediction,
 }: {
   series: MultiSeries[];
   emptyMessage?: string;
+  /** Fixed Y axis lower bound (e.g. 0). Falls back to the data's min value when omitted. */
+  yAxisMin?: number;
+  /** Fixed Y axis upper bound (e.g. 80 for 妙妙卷, 28 for 克漏字). Falls back to the data's max value when omitted. */
+  yAxisMax?: number;
+  /** Optional full-score cap line (currently only used for 克漏字, whose max score is 28). */
+  capLine?: CapLine | null;
+  /** Externally computed next-score prediction (see english/page.tsx for the per-type regression logic). */
+  prediction?: PredictionLabel | null;
 }) {
   const allValues = series.flatMap((s) => s.points.map((p) => p.value));
   if (!allValues.length) {
@@ -121,17 +150,8 @@ export function MultiTrendChart({
         a.pointIndex - b.pointIndex
     );
   const pointIndices = new Map(timeline.map(({ point }, index) => [point, index]));
-  const values = timeline.map(({ point }) => point.value);
-  const meanX = (values.length - 1) / 2;
-  const meanY = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const denominator = values.reduce((sum, _, index) => sum + (index - meanX) ** 2, 0);
-  const slope =
-    values.length >= 2
-      ? values.reduce((sum, value, index) => sum + (index - meanX) * (value - meanY), 0) / denominator
-      : null;
-  const prediction = slope === null ? null : meanY + slope * (values.length - meanX);
-  const axisMin = prediction === null ? minValue : Math.min(minValue, prediction);
-  const axisMax = prediction === null ? maxValue : Math.max(maxValue, prediction);
+  const axisMin = yAxisMin ?? minValue;
+  const axisMax = yAxisMax ?? Math.max(maxValue, prediction?.value ?? maxValue);
   const range = Math.max(axisMax - axisMin, 10);
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
@@ -140,7 +160,7 @@ export function MultiTrendChart({
   const xFor = (point: TrendPoint) => {
     const index = pointIndices.get(point) ?? 0;
     const position =
-      prediction !== null
+      prediction != null
         ? index / timeline.length
         : timeline.length === 1
           ? 0.5
@@ -148,7 +168,10 @@ export function MultiTrendChart({
     return padding.left + innerWidth * position;
   };
   const predictionX = padding.left + innerWidth;
-  const predictionY = prediction === null ? null : yFor(prediction);
+  // Clamp the plotted marker to the fixed axis range while still showing the
+  // real predicted value in the label text.
+  const predictionY =
+    prediction == null ? null : yFor(Math.min(Math.max(prediction.value, axisMin), axisMax));
   const predictionLabelY =
     predictionY === null
       ? null
@@ -211,6 +234,29 @@ export function MultiTrendChart({
         >
           最低 {formatScore(minValue)}
         </text>
+        {capLine && (
+          <g>
+            <line
+              x1={padding.left}
+              y1={yFor(capLine.value)}
+              x2={width - padding.right}
+              y2={yFor(capLine.value)}
+              stroke={capLine.color ?? "#c22a6e"}
+              strokeWidth={1.5}
+              strokeDasharray={capLine.dashArray ?? "2 4"}
+            />
+            <text
+              x={padding.left + 5}
+              y={yFor(capLine.value) - 8}
+              fill={capLine.color ?? "#c22a6e"}
+              fontSize={12}
+              fontWeight={700}
+              textAnchor="start"
+            >
+              {capLine.label}
+            </text>
+          </g>
+        )}
         {series.map((s) => {
           if (!s.points.length) return null;
           const plotted = s.points.map((point) => {
@@ -239,7 +285,7 @@ export function MultiTrendChart({
             </g>
           );
         })}
-        {prediction !== null && predictionY !== null && predictionLabelY !== null && (
+        {prediction != null && predictionY !== null && predictionLabelY !== null && (
           <g>
             <path
               d={`M ${predictionX} ${predictionY - 7} L ${predictionX + 7} ${predictionY} L ${predictionX} ${predictionY + 7} L ${predictionX - 7} ${predictionY} Z`}
@@ -255,7 +301,7 @@ export function MultiTrendChart({
               fontWeight={700}
               textAnchor="end"
             >
-              預測：{formatScore(prediction)} 分
+              {prediction.label}
             </text>
             <text x={predictionX} y={height - padding.bottom + 22} fill="#5d6880" fontSize={12} textAnchor="middle">
               下次

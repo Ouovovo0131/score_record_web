@@ -68,11 +68,17 @@ export const FIXED_SCHEDULES: FixedSchedule[] = [
 ];
 
 export const ENGLISH_PRACTICE_TYPES = [
-  { key: "miaomiao", label: "妙妙卷" },
-  { key: "cloze", label: "克漏字" },
+  { key: "miaomiao", label: "妙妙卷", maxScore: 80 },
+  { key: "cloze", label: "克漏字", maxScore: 28 },
 ] as const;
 
 export type EnglishPracticeType = (typeof ENGLISH_PRACTICE_TYPES)[number]["key"];
+
+// Total score upper bound for the combined "all" trend view: the sum of every
+// practice type's own full score (80 + 28 = 108). Kept derived from
+// ENGLISH_PRACTICE_TYPES so it automatically stays consistent if a type's
+// max score ever changes.
+export const ENGLISH_TOTAL_MAX_SCORE = ENGLISH_PRACTICE_TYPES.reduce((sum, type) => sum + type.maxScore, 0);
 
 export const ENGLISH_UNAVAILABLE_CATEGORY_MAP: Record<string, string[]> = {
   miaomiao: [],
@@ -275,6 +281,27 @@ export const DEFAULT_ENGLISH_RECORDS = [
 
 export function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/**
+ * Predicts the next value of a chronological score series using simple
+ * linear regression (index as x, score as y). Returns null when there is no
+ * data at all. When there are fewer than 2 points the regression slope
+ * cannot be determined, so we fall back to the most recent score instead of
+ * forcing a value of 0 — a single data point is still the best guess we
+ * have for "next time" performance.
+ */
+export function predictNextValue(values: number[]): number | null {
+  if (!values.length) return null;
+  if (values.length < 2) return values[values.length - 1];
+
+  const meanX = (values.length - 1) / 2;
+  const meanY = average(values);
+  const denominator = values.reduce((sum, _, index) => sum + (index - meanX) ** 2, 0);
+  if (denominator === 0) return values[values.length - 1];
+
+  const slope = values.reduce((sum, value, index) => sum + (index - meanX) * (value - meanY), 0) / denominator;
+  return meanY + slope * (values.length - meanX);
 }
 
 export function formatScore(value: number | null | undefined): string {

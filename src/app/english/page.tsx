@@ -4,7 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { InsightCard, Tag } from "@/components/InsightCard";
 import { MultiTrendChart } from "@/components/TrendChart";
-import { average, formatScore, ENGLISH_CATEGORIES, ENGLISH_PRACTICE_TYPES, ENGLISH_UNAVAILABLE_CATEGORY_MAP } from "@/lib/data";
+import {
+  average,
+  formatScore,
+  predictNextValue,
+  ENGLISH_CATEGORIES,
+  ENGLISH_PRACTICE_TYPES,
+  ENGLISH_TOTAL_MAX_SCORE,
+  ENGLISH_UNAVAILABLE_CATEGORY_MAP,
+} from "@/lib/data";
 import type { EnglishPracticeType } from "@/lib/data";
 import type { EnglishRecordDTO } from "@/lib/types";
 
@@ -131,6 +139,38 @@ function EnglishPageContent() {
   const visibleTrendSeries =
     trendType === "all" ? trendSeries : trendSeries.filter((series) => series.key === trendType);
   const visibleTrendCount = visibleTrendSeries.reduce((count, series) => count + series.points.length, 0);
+
+  // Each practice type grows at its own pace, so the next-score prediction is
+  // computed independently per type (linear regression over that type's own
+  // history) instead of regressing on a single mixed/combined series. The
+  // "all" view's predicted total is simply the sum of the two per-type
+  // predictions.
+  const typePredictions = new Map(
+    trendSeries.map((series) => [series.key, predictNextValue(series.points.map((p) => p.value))])
+  );
+  const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
+  const trendYAxisMin = 0;
+  const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
+  const trendCapLine =
+    trendType === "cloze"
+      ? { value: selectedType!.maxScore, label: `滿分 ${selectedType!.maxScore}`, color: "#c22a6e", dashArray: "2 4" }
+      : null;
+  const trendPrediction = (() => {
+    if (trendType === "all") {
+      const miaomiaoPrediction = typePredictions.get("miaomiao");
+      const clozePrediction = typePredictions.get("cloze");
+      if (miaomiaoPrediction == null && clozePrediction == null) return null;
+      const miaomiao = miaomiaoPrediction ?? 0;
+      const cloze = clozePrediction ?? 0;
+      return {
+        value: miaomiao + cloze,
+        label: `預測總分：${formatScore(miaomiao + cloze)} 分（妙妙卷 ${formatScore(miaomiao)} + 克漏字 ${formatScore(cloze)}）`,
+      };
+    }
+    const value = typePredictions.get(trendType);
+    if (value == null) return null;
+    return { value, label: `預測：${formatScore(value)} 分` };
+  })();
 
   async function handleAddRecord(formEl: HTMLFormElement) {
     const formData = new FormData(formEl);
@@ -336,11 +376,20 @@ function EnglishPageContent() {
           </label>
         </div>
         <p className="mt-1 text-muted">
-          {trendType === "all" ? "妙妙卷（藍）與克漏字（綠）分開繪製。" : `僅顯示${getPracticeTypeLabel(trendType)}成績。`}
-          {visibleTrendCount === 1 ? " 至少需要 2 筆有效成績才會顯示預測。" : ""}
+          {trendType === "all"
+            ? `妙妙卷（藍，滿分 ${ENGLISH_PRACTICE_TYPES[0].maxScore}）與克漏字（綠，滿分 ${ENGLISH_PRACTICE_TYPES[1].maxScore}）分開繪製，Y 軸為兩者滿分相加（0–${ENGLISH_TOTAL_MAX_SCORE}）。`
+            : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分。`}
+          {visibleTrendCount === 1 ? " 資料筆數不足以回歸，預測將以最近一次成績作為近似值。" : ""}
         </p>
         <div className="mt-4">
-          <MultiTrendChart series={visibleTrendSeries} emptyMessage="目前選擇的練習類型沒有有效總分資料。" />
+          <MultiTrendChart
+            series={visibleTrendSeries}
+            emptyMessage="目前選擇的練習類型沒有有效總分資料。"
+            yAxisMin={trendYAxisMin}
+            yAxisMax={trendYAxisMax}
+            capLine={trendCapLine}
+            prediction={trendPrediction}
+          />
         </div>
       </section>
 
