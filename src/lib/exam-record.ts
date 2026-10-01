@@ -24,7 +24,7 @@ function recordValues(record: Record<string, number | null | undefined>) {
   if (values.scienceMixedScore === null) {
     const legacyDetails = SCIENCE_DETAIL_SCORES.map(({ legacyKey }) => toNumberOrNull(record[legacyKey]));
     if (legacyDetails.some((score) => score !== null)) {
-      values.scienceMixedScore = legacyDetails.reduce((sum, score) => sum + (score ?? 0), 0);
+      values.scienceMixedScore = legacyDetails.reduce<number>((sum, score) => sum + (score ?? 0), 0);
     }
   }
   for (const subject of SUBJECTS) {
