@@ -15,8 +15,8 @@ export default function LoginPage() {
   }, [loading, user, router]);
 
   return (
-    <div className="mx-auto flex w-[min(480px,calc(100%-32px))] flex-1 flex-col items-center justify-center gap-6 py-16">
-      <div className="w-full border border-ink bg-white p-8 text-center">
+    <div className="mobile-login-page mx-auto flex w-[min(480px,calc(100%-32px))] flex-1 flex-col items-center justify-center gap-6 py-16">
+      <div className="mobile-login-card w-full border border-ink bg-white p-8 text-center">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">Sign In</p>
         <h1 className="text-3xl font-extrabold">登入</h1>
         <p className="mt-2 text-muted">登入後才能檢視與編輯成績統計、英文練習資料。</p>

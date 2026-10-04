@@ -4,7 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { InsightCard, Tag } from "@/components/InsightCard";
 import { MultiTrendChart } from "@/components/TrendChart";
-import { average, formatScore, ENGLISH_CATEGORIES, ENGLISH_PRACTICE_TYPES, ENGLISH_UNAVAILABLE_CATEGORY_MAP } from "@/lib/data";
+import {
+  average,
+  formatScore,
+  predictNextValue,
+  ENGLISH_CATEGORIES,
+  ENGLISH_PRACTICE_TYPES,
+  ENGLISH_TOTAL_MAX_SCORE,
+  ENGLISH_UNAVAILABLE_CATEGORY_MAP,
+} from "@/lib/data";
+import type { EnglishPracticeType } from "@/lib/data";
 import type { EnglishRecordDTO } from "@/lib/types";
 
 function getFiniteValues(values: (number | null | undefined)[]): number[] {
@@ -29,6 +38,7 @@ function EnglishPageContent() {
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [practiceTypeInput, setPracticeTypeInput] = useState<string>("miaomiao");
+  const [trendType, setTrendType] = useState<"all" | EnglishPracticeType>("all");
 
   useEffect(() => {
     fetch("/api/english-records")
@@ -126,6 +136,53 @@ function EnglishPageContent() {
       .filter((r) => r.practiceType === type.key && Number.isFinite(r.totalScore))
       .map((r) => ({ date: r.practiceDate, value: r.totalScore as number })),
   }));
+  const visibleTrendSeries =
+    trendType === "all" ? trendSeries : trendSeries.filter((series) => series.key === trendType);
+  const visibleTrendCount = visibleTrendSeries.reduce((count, series) => count + series.points.length, 0);
+
+  // Each practice type grows at its own pace, so the next-score prediction is
+  // computed independently per type (linear regression over that type's own
+  // history) instead of regressing on a single mixed/combined series. The
+  // "all" view's predicted total is simply the sum of all per-type
+  // predictions.
+  const typePredictions = new Map(
+    trendSeries.map((series) => [series.key, predictNextValue(series.points.map((p) => p.value))])
+  );
+  const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
+  const trendYAxisMin = 0;
+  const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
+  const trendCapLine =
+    trendType === "cloze" && selectedType ? { value: selectedType.maxScore, label: `滿分 ${selectedType.maxScore}` } : null;
+  const trendPrediction = (() => {
+    if (trendType === "all") {
+      const perTypePredictions = ENGLISH_PRACTICE_TYPES.map((type) => ({
+        type,
+        prediction: typePredictions.get(type.key) ?? null,
+      }));
+      if (perTypePredictions.every(({ prediction }) => prediction == null)) return null;
+      // Missing data (a type with no history at all) and a weak single-point
+      // basis (predictNextValue's last-score fallback) are distinct
+      // situations, so they get distinct label wording rather than being
+      // conflated into one generic "partial" flag.
+      const hasMissingType = perTypePredictions.some(({ prediction }) => prediction == null);
+      const hasApproximateType = perTypePredictions.some(({ prediction }) => prediction?.isApproximate);
+      const total = perTypePredictions.reduce((sum, { prediction }) => sum + (prediction?.value ?? 0), 0);
+      const breakdown = perTypePredictions
+        .map(({ type, prediction }) => {
+          if (prediction == null) return `${type.label} 尚無資料`;
+          return `${type.label} ${formatScore(prediction.value)} 分${prediction.isApproximate ? "（近似）" : ""}`;
+        })
+        .join(" + ");
+      const titlePrefix = hasMissingType ? "預測總分（部分資料）" : hasApproximateType ? "預測總分（近似）" : "預測總分";
+      return {
+        value: total,
+        label: `${titlePrefix}：${formatScore(total)} 分（${breakdown}）`,
+      };
+    }
+    const prediction = typePredictions.get(trendType);
+    if (prediction == null) return null;
+    return { value: prediction.value, label: `預測：${formatScore(prediction.value)} 分${prediction.isApproximate ? "（近似）" : ""}` };
+  })();
 
   async function handleAddRecord(formEl: HTMLFormElement) {
     const formData = new FormData(formEl);
@@ -200,8 +257,8 @@ function EnglishPageContent() {
   }
 
   return (
-    <div className="mx-auto w-[min(1240px,calc(100%-32px))] py-8 pb-14">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b-4 border-ink bg-white py-5">
+    <div className="mobile-page">
+      <div className="mobile-page-header mb-6 flex flex-wrap items-start justify-between gap-4 border-b-4 border-ink bg-white py-5">
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">English Practice Dashboard</p>
           <h1 className="text-4xl font-extrabold sm:text-5xl">英文練習統計</h1>
@@ -228,7 +285,7 @@ function EnglishPageContent() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mobile-stat-grid grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="總筆數" value={String(records.length)} caption="所有英文練習紀錄" />
         <StatCard label="平均總分" value={totals.length ? formatScore(average(totals)) : "0"} caption="全體練習平均" />
         <StatCard label="最佳總分" value={totals.length ? formatScore(Math.max(...totals)) : "0"} caption="目前最佳表現" />
@@ -237,7 +294,7 @@ function EnglishPageContent() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <section className="border border-line bg-white p-5 lg:col-span-7">
+        <section className="mobile-panel border border-line bg-white p-5 lg:col-span-7">
           <h2 className="text-xl font-bold">各題型成長趨勢</h2>
           {!latest ? (
             <div className="mt-4 border border-dashed border-line-strong bg-[#f8fbff] p-6 text-center text-muted">
@@ -251,7 +308,7 @@ function EnglishPageContent() {
               <div className="mt-3">
                 <Tag label={getPracticeTypeLabel(latest.practiceType)} />
               </div>
-              <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                 {categoryTrendSummaries.map((summary) => (
                   <InsightCard
                     key={summary.key}
@@ -266,9 +323,9 @@ function EnglishPageContent() {
           )}
         </section>
 
-        <aside className="border border-line bg-white p-5 lg:col-span-5">
+        <aside className="mobile-panel border border-line bg-white p-5 lg:col-span-5">
           <h2 className="text-xl font-bold">練習類型平均</h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {records.length === 0 ? (
               <div className="col-span-2 border border-dashed border-line-strong bg-[#f8fbff] p-5 text-center text-muted">
                 目前沒有英文練習資料。
@@ -310,18 +367,48 @@ function EnglishPageContent() {
         </aside>
       </div>
 
-      <section className="mt-5 border border-line bg-white p-5">
-        <h2 className="text-xl font-bold">總分成長曲線</h2>
-        <p className="mt-1 text-muted">妙妙卷（藍）與克漏字（綠）分開繪製。</p>
+      <section className="mobile-panel mt-5 border border-line bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">總分成長曲線</h2>
+          <label className="flex items-center gap-2 text-sm font-semibold text-muted">
+            顯示題型
+            <select
+              value={trendType}
+              onChange={(event) => setTrendType(event.target.value as "all" | EnglishPracticeType)}
+              aria-label="選擇總分成長曲線題型"
+              className="border border-line bg-white px-3 py-2 text-ink"
+            >
+              <option value="all">全部</option>
+              {ENGLISH_PRACTICE_TYPES.map((type) => (
+                <option key={type.key} value={type.key}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="mt-1 text-muted">
+          {trendType === "all"
+            ? `${ENGLISH_PRACTICE_TYPES.map((type) => `${type.label}（滿分 ${type.maxScore}）`).join("與")}分開繪製，Y 軸為各題型滿分相加（0–${ENGLISH_TOTAL_MAX_SCORE}）。`
+            : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分。`}
+          {visibleTrendCount === 1 ? " 資料筆數不足以回歸，預測將以最近一次成績作為近似值。" : ""}
+        </p>
         <div className="mt-4">
-          <MultiTrendChart series={trendSeries} />
+          <MultiTrendChart
+            series={visibleTrendSeries}
+            emptyMessage="目前選擇的練習類型沒有有效總分資料。"
+            yAxisMin={trendYAxisMin}
+            yAxisMax={trendYAxisMax}
+            capLine={trendCapLine}
+            prediction={trendPrediction}
+          />
         </div>
       </section>
 
-      <section className="mt-5 border border-line bg-white p-5">
+      <section className="mobile-panel mt-5 border border-line bg-white p-5">
         <h2 className="text-xl font-bold">題型得分率比較</h2>
         <p className="mt-1 text-muted">依練習類型比較各題型平均得分率（克漏字沒有詞彙/閱讀/混合題）。</p>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ENGLISH_CATEGORIES.map((category) => {
             const miaomiaoRate = getCategoryAverageRate(category.key, "miaomiao");
             const clozeRate = isUnavailableCategory("cloze", category.key) ? null : getCategoryAverageRate(category.key, "cloze");
@@ -340,10 +427,10 @@ function EnglishPageContent() {
         </div>
       </section>
 
-      <section className="mt-5 border border-line bg-white p-5">
+      <section className="mobile-panel mt-5 border border-line bg-white p-5">
         <h2 className="text-xl font-bold">歷次紀錄與管理</h2>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[1180px] border-collapse">
+        <div className="mobile-table-wrap mt-4">
+          <table className="mobile-table w-full min-w-[1180px] border-collapse">
             <thead>
               <tr>
                 {["日期", "練習類型", "練習名稱", "總分", "詞彙", "綜合測驗", "文意選填", "篇章結構", "閱讀", "混合", "備註", "操作"].map((h) => (
@@ -398,7 +485,7 @@ function EnglishPageContent() {
       {showModal && (
         <div className="fixed inset-0 z-50 grid place-items-center">
           <div className="absolute inset-0 bg-[rgba(14,23,42,0.5)]" onClick={() => setShowModal(false)} />
-          <div className="relative max-h-[calc(100vh-36px)] w-[min(1040px,calc(100%-24px))] overflow-auto border border-line bg-white p-6">
+          <div className="mobile-modal relative max-h-[calc(100vh-36px)] w-[min(1040px,calc(100%-24px))] overflow-auto border border-line bg-white p-6">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-2xl font-bold">新增英文練習紀錄</h2>
               <button type="button" onClick={() => setShowModal(false)} aria-label="關閉" className="text-2xl">
@@ -413,7 +500,7 @@ function EnglishPageContent() {
                 handleAddRecord(e.currentTarget);
               }}
             >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="mobile-modal-grid grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <label className="flex flex-col gap-2 text-muted">
                   練習類型
                   <select
@@ -439,7 +526,7 @@ function EnglishPageContent() {
                 </label>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mobile-modal-grid mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                 {ENGLISH_CATEGORIES.map((category) => {
                   const unavailable = isUnavailableCategory(practiceTypeInput, category.key);
                   return (
@@ -498,7 +585,7 @@ function StatCard({
   highlight?: boolean;
 }) {
   return (
-    <article className={`border p-4.5 ${highlight ? "border-line-strong bg-white" : "border-line bg-white"}`}>
+    <article className={`mobile-stat-card border p-4.5 ${highlight ? "border-line-strong bg-white" : "border-line bg-white"}`}>
       <p className="m-0 text-muted">{label}</p>
       <strong className="num-display mt-2 block text-3xl sm:text-[2.5rem]">{value}</strong>
       <span className="mt-1 block text-muted">{caption}</span>

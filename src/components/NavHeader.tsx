@@ -16,7 +16,7 @@ export default function NavHeader() {
 
   return (
     <header className="border-b-4 border-ink bg-white">
-      <div className="mx-auto flex w-[min(1240px,calc(100%-32px))] flex-wrap items-center justify-between gap-4 py-4">
+      <div className="mobile-nav-shell mx-auto flex w-[min(1240px,calc(100%-32px))] flex-wrap items-center justify-between gap-4 py-4">
         <nav className="flex flex-wrap gap-2" aria-label="主要頁面">
           {NAV_LINKS.map((link) => {
             const isActive = pathname === link.href;
@@ -24,7 +24,7 @@ export default function NavHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`inline-flex items-center justify-center border border-ink px-4 py-2 font-bold ${
+                className={`mobile-nav-link inline-flex items-center justify-center border border-ink px-4 py-2 font-bold ${
                   isActive ? "bg-ink text-white" : "bg-white text-ink"
                 }`}
               >

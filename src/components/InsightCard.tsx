@@ -49,7 +49,7 @@ export function InsightCard({
   comparison: Comparison;
 }) {
   return (
-    <article className="border border-line bg-white p-4">
+    <article className="mobile-summary-card border border-line bg-white p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="m-0 text-muted">{title}</p>
         <span

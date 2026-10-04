@@ -282,8 +282,8 @@ function ScorePageContent() {
   }
 
   return (
-    <div className="mx-auto w-[min(1240px,calc(100%-32px))] py-8 pb-14">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b-4 border-ink bg-white py-5">
+    <div className="mobile-page">
+      <div className="mobile-page-header mb-6 flex flex-wrap items-start justify-between gap-4 border-b-4 border-ink bg-white py-5">
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">Score Record Dashboard</p>
           <h1 className="text-4xl font-extrabold sm:text-5xl">模擬考成績統計</h1>
@@ -308,7 +308,7 @@ function ScorePageContent() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mobile-stat-grid grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="目前筆數" value={String(records.length)} caption="已建立的模擬考紀錄" />
         <StatCard label="平均總級分" value={averageGrade !== null ? formatScore(averageGrade) : "0"} caption="歷次總級分平均" />
         <StatCard label="最高總級分" value={highestGrade !== null ? formatScore(highestGrade) : "0"} caption="目前最佳總級分" />
@@ -317,7 +317,7 @@ function ScorePageContent() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <section className="border border-line bg-white p-5 lg:col-span-7">
+        <section className="mobile-panel border border-line bg-white p-5 lg:col-span-7">
           <h2 className="text-xl font-bold">最新考試聚焦</h2>
           <p className="mt-1 text-muted">自動抓取最近一次考試，與上一次或平均表現比較。</p>
 
@@ -340,7 +340,7 @@ function ScorePageContent() {
                   ))}
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                 <InsightCard
                   title="總分"
                   value={formatMaybeNumber(latest.totalScore)}
@@ -384,7 +384,7 @@ function ScorePageContent() {
           )}
         </section>
 
-        <aside className="border border-line bg-white p-5 lg:col-span-5">
+        <aside className="mobile-panel border border-line bg-white p-5 lg:col-span-5">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">目標差距</h2>
             <button
@@ -438,7 +438,7 @@ function ScorePageContent() {
             </form>
           )}
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {goalProgressItems.length === 0 ? (
               <div className="col-span-2 border border-dashed border-line-strong bg-[#f8fbff] p-5 text-center text-muted">
                 尚未設定任何目標。
@@ -463,7 +463,7 @@ function ScorePageContent() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="border border-line bg-white p-5">
+        <section className="mobile-panel border border-line bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">長期成長趨勢</h2>
@@ -491,7 +491,7 @@ function ScorePageContent() {
           </div>
         </section>
 
-        <section className="border border-line bg-white p-5">
+        <section className="mobile-panel border border-line bg-white p-5">
           <h2 className="text-xl font-bold">各科得分比率</h2>
           <p className="mt-1 text-muted">以「得分 / 滿分」呈現平均與最近一次表現；自然另列物理、化學、生物、地科（各滿分 32）。</p>
           <div className="mt-4">
@@ -510,7 +510,7 @@ function ScorePageContent() {
         </section>
       </div>
 
-      <section className="mt-5 border border-line bg-white p-5">
+      <section className="mobile-panel mt-5 border border-line bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold">歷次紀錄與管理</h2>
@@ -529,8 +529,8 @@ function ScorePageContent() {
           </div>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[1180px] border-collapse">
+        <div className="mobile-table-wrap mt-4">
+          <table className="mobile-table w-full min-w-[1180px] border-collapse">
             <thead>
               <tr>
                 {["日期", "考試", "總分", "總級分", "國文", "英文", "數A", "社會", "自然", "標籤", "備註", "操作"].map((h) => (
@@ -595,7 +595,7 @@ function ScorePageContent() {
       {showModal && (
         <div className="fixed inset-0 z-50 grid place-items-center">
           <div className="absolute inset-0 bg-[rgba(14,23,42,0.5)]" onClick={() => setShowModal(false)} />
-          <div className="relative max-h-[calc(100vh-36px)] w-[min(1040px,calc(100%-24px))] overflow-auto border border-line bg-white p-6">
+          <div className="mobile-modal relative max-h-[calc(100vh-36px)] w-[min(1040px,calc(100%-24px))] overflow-auto border border-line bg-white p-6">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-2xl font-bold">新增模擬考紀錄</h2>
               <button type="button" onClick={() => setShowModal(false)} aria-label="關閉" className="text-2xl">
@@ -610,7 +610,7 @@ function ScorePageContent() {
                 handleAddRecord(e.currentTarget);
               }}
             >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="mobile-modal-grid grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="flex flex-col gap-2 text-muted">
                   考試名稱
                   <input name="examName" type="text" placeholder="例：第三次模擬考" required className="border border-line px-3 py-2.5" />
@@ -629,7 +629,7 @@ function ScorePageContent() {
                 </label>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="mobile-modal-grid mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
                 {[
                   { label: "國文", scoreName: "chineseScore", gradeName: "chineseGrade" },
                   { label: "英文", scoreName: "englishScore", gradeName: "englishGrade" },
@@ -701,7 +701,7 @@ function StatCard({
   highlight?: boolean;
 }) {
   return (
-    <article className={`border p-4.5 ${highlight ? "border-line-strong bg-white" : "border-line bg-white"}`}>
+    <article className={`mobile-stat-card border p-4.5 ${highlight ? "border-line-strong bg-white" : "border-line bg-white"}`}>
       <p className="m-0 text-muted">{label}</p>
       <strong className="num-display mt-2 block text-3xl sm:text-[2.5rem]">{value}</strong>
       <span className="mt-1 block text-muted">{caption}</span>
