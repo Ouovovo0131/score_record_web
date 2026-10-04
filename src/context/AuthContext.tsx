@@ -1,8 +1,8 @@
 "use client";
 
-// Auth context wrapping Firebase Google sign-in, restricted to a single
-// allowlisted email (NEXT_PUBLIC_ALLOWED_EMAIL). Any other Google account is
-// immediately signed out with an "此帳號未被授權" error surfaced via `error`.
+// Auth context wrapping Firebase Google sign-in. After sign-in the ID token is
+// checked server-side against the AllowedUser table (/api/auth/check); accounts
+// not on the list are signed out with an "此帳號未被授權" error surfaced via `error`.
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -19,7 +19,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ALLOWED_EMAIL, getFirebaseAuth, hasFirebaseConfig } from "@/lib/firebase";
+import { getFirebaseAuth, hasFirebaseConfig } from "@/lib/firebase";
 
 interface AuthContextValue {
   user: User | null;
@@ -49,12 +49,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
-      if (nextUser && ALLOWED_EMAIL && nextUser.email !== ALLOWED_EMAIL) {
-        setError("此帳號未被授權");
-        await firebaseSignOut(auth);
-        setUser(null);
-        setLoading(false);
-        return;
+      if (nextUser) {
+        let allowed = false;
+        try {
+          const token = await nextUser.getIdToken();
+          const res = await fetch("/api/auth/check", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+          allowed = res.ok && Boolean((await res.json()).allowed);
+        } catch {
+          allowed = false;
+        }
+        if (!allowed) {
+          setError("此帳號未被授權");
+          await firebaseSignOut(auth);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
       }
 
       setError(null);

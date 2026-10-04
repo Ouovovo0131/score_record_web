@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/score", label: "成績統計" },
   { href: "/english", label: "英文練習" },
   { href: "/study", label: "讀書紀錄" },
+  { href: "/accounts", label: "帳號管理" },
 ];
 
 export default function NavHeader() {

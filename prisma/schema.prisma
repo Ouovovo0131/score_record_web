@@ -146,3 +146,10 @@ model StudyTask {
 
   @@index([userEmail, startDate])
 }
+
+model AllowedUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  addedBy   String   @default("")
+  createdAt DateTime @default(now())
+}
