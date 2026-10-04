@@ -3,7 +3,7 @@
 // and default seed data used both by the seed script and the API/UI.
 
 export interface Subject {
-  key: "chinese" | "english" | "math" | "science";
+  key: "chinese" | "english" | "math" | "science" | "social";
   label: string;
   shortLabel: string;
   scoreKey: string;
@@ -58,7 +58,29 @@ export const SUBJECTS: Subject[] = [
       { key: "scienceMixedScore", label: "混合題", maxScore: 56 },
     ],
   },
+  {
+    key: "social",
+    label: "社會",
+    shortLabel: "社",
+    scoreKey: "socialScore",
+    gradeKey: "socialGrade",
+    components: [
+      { key: "socialHistoryScore", label: "歷史", maxScore: 48 },
+      { key: "socialGeographyScore", label: "地理", maxScore: 48 },
+      { key: "socialCivicsScore", label: "公民", maxScore: 48 },
+    ],
+  },
 ];
+
+export type Track = "science" | "social";
+
+export const TRACK_LABELS: Record<Track, string> = { science: "自然組", social: "社會組" };
+
+// Each track shows Chinese/English/Math plus its own elective group.
+export function subjectsForTrack(track: Track | null | undefined): Subject[] {
+  const hidden = track === "social" ? "science" : "social";
+  return SUBJECTS.filter((subject) => subject.key !== hidden);
+}
 
 export const SCIENCE_DETAIL_MAX_SCORE = 32;
 
@@ -74,6 +96,7 @@ export function calculateSubjectScore(
   subject: Subject
 ): number | null {
   const values = subject.components.map(({ key }) => record[key]);
+  if (subject.key === "social" && !values.some((value) => Number.isFinite(value))) return null;
   if (!values.some((value) => Number.isFinite(value))) {
     const legacyScore = record[subject.scoreKey];
     return Number.isFinite(legacyScore) ? (legacyScore as number) : null;
@@ -84,8 +107,8 @@ export function calculateSubjectScore(
   return values.reduce<number>((sum, value) => sum + (Number.isFinite(value) ? (value as number) : 0), 0);
 }
 
-export function calculateTotalGrade(record: Record<string, number | null | undefined>): number | null {
-  const grades = SUBJECTS.map(({ gradeKey }) => record[gradeKey]).filter(Number.isFinite) as number[];
+export function calculateTotalGrade(record: Record<string, number | null | undefined>, subjects: Subject[] = SUBJECTS): number | null {
+  const grades = subjects.map(({ gradeKey }) => record[gradeKey]).filter(Number.isFinite) as number[];
   return grades.length ? grades.reduce((sum, grade) => sum + grade, 0) : null;
 }
 

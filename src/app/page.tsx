@@ -75,8 +75,10 @@ interface StudyTask {
   done: boolean;
 }
 
+const SUBJECT_COLORS: Record<string, string> = { chinese: "#dc2626", english: "#16a34a", math: "#2563eb", science: "#9333ea", social: "#ea580c" };
+
 const TASK_SUBJECTS = [
-  ...SUBJECTS.map((s, i) => ({ key: s.key as string, label: s.label, color: ["#dc2626", "#16a34a", "#2563eb", "#9333ea"][i] })),
+  ...SUBJECTS.map((s) => ({ key: s.key as string, label: s.label, color: SUBJECT_COLORS[s.key] })),
   { key: "other", label: "其他", color: "#6b7280" },
 ];
 
@@ -281,7 +283,7 @@ function ListView({ now }: { now: Date }) {
 }
 
 function CalendarView({ now }: { now: Date }) {
-  const { user } = useAuth();
+  const { user, track } = useAuth();
   const [cursor, setCursor] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [selected, setSelected] = useState<string | null>(null);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
@@ -510,7 +512,7 @@ function CalendarView({ now }: { now: Date }) {
                   ))}
                 </div>
                 <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="border border-line bg-white p-2 sm:col-span-1" aria-label="科目">
-                  {TASK_SUBJECTS.map((s) => (
+                  {TASK_SUBJECTS.filter((s) => s.key !== (track === "social" ? "science" : "social")).map((s) => (
                     <option key={s.key} value={s.key}>
                       {s.label}
                     </option>

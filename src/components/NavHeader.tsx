@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { TRACK_LABELS, type Track } from "@/lib/data";
 
 const NAV_LINKS = [
   { href: "/", label: "考程倒數" },
@@ -14,7 +15,7 @@ const NAV_LINKS = [
 
 export default function NavHeader() {
   const pathname = usePathname();
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, track, setTrack } = useAuth();
 
   return (
     <header className="border-b-4 border-ink bg-white">
@@ -39,6 +40,15 @@ export default function NavHeader() {
         <div className="flex items-center gap-3">
           {!loading && user && (
             <>
+              {track && (
+                <select value={track} onChange={(e) => void setTrack(e.target.value as Track)} aria-label="組別" className="border border-ink bg-white px-2 py-2 font-bold text-ink">
+                  {(Object.keys(TRACK_LABELS) as Track[]).map((key) => (
+                    <option key={key} value={key}>
+                      {TRACK_LABELS[key]}
+                    </option>
+                  ))}
+                </select>
+              )}
               <span className="hidden font-mono text-sm text-muted sm:inline">{user.email}</span>
               <button
                 type="button"

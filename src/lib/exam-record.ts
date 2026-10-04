@@ -21,6 +21,9 @@ function recordValues(record: Record<string, number | null | undefined>) {
   SCIENCE_DETAIL_SCORES.forEach(({ key, legacyKey }) => {
     values[key] = toNumberOrNull(record[key]) ?? toNumberOrNull(record[legacyKey]);
   });
+  // Legacy rows stored 0 for the unused social subject; treat that as "no data".
+  const socialEntered = SUBJECTS.find((s) => s.key === "social")!.components.some(({ key }) => values[key] !== null);
+  if (!socialEntered && values.socialGrade === 0) values.socialGrade = null;
   for (const subject of SUBJECTS) {
     values[subject.scoreKey] = toNumberOrNull(record[subject.scoreKey]);
     values[subject.scoreKey] = calculateSubjectScore(values, subject);
@@ -50,6 +53,9 @@ export function validateExamRecordData(body: Record<string, unknown>): string | 
     ) > 0.001
   ) {
     return "物理、化學、生物及地球科學整份考卷得分合計需等於自然選擇題與混合題分數總和。";
+  }
+  if (SUBJECTS.find((s) => s.key === "social")!.components.some(({ key, maxScore }) => Number(values[key]) > (maxScore ?? Infinity))) {
+    return "社會各科分數不可超過 48 分。";
   }
   if (Number(values.scienceScore) > 128) return "自然分數不可超過 128 分。";
   for (const key of [...SUBJECTS.map(({ gradeKey }) => gradeKey), ...BENCHMARK_KEYS]) {

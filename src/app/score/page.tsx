@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
+import { useAuth } from "@/context/AuthContext";
 import { InsightCard, Tag, buildComparison } from "@/components/InsightCard";
 import { TrendChart } from "@/components/TrendChart";
-import { BENCHMARKS, RANK_FIELDS, SCIENCE_DETAIL_MAX_SCORE, SCIENCE_DETAIL_SCORES, SUBJECTS, average, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
+import { BENCHMARKS, RANK_FIELDS, SCIENCE_DETAIL_MAX_SCORE, SCIENCE_DETAIL_SCORES, SUBJECTS, average, subjectsForTrack, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
 import type { ExamRecordDTO, GoalDTO } from "@/lib/types";
 
 function getFiniteValues(values: (number | null | undefined)[]): number[] {
@@ -79,6 +80,8 @@ const GOAL_KEY_BY_SUBJECT: Record<string, GoalGradeKey> = {
 };
 
 function ScorePageContent() {
+  const { track } = useAuth();
+  const subjects = useMemo(() => subjectsForTrack(track), [track]);
   const [records, setRecords] = useState<ExamRecordDTO[]>([]);
   const [goal, setGoal] = useState<GoalDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,7 +114,7 @@ function ScorePageContent() {
     if (!latest || !previous) {
       return { value: "暫無資料", detail: "至少需要 2 筆成績才可比較", status: "" as const };
     }
-    const comparisons = SUBJECTS.map((subject) => {
+    const comparisons = subjects.map((subject) => {
       const latestScore = latest[subject.scoreKey as keyof ExamRecordDTO] as number | null;
       const previousScore = previous[subject.scoreKey as keyof ExamRecordDTO] as number | null;
       if (!Number.isFinite(latestScore) || !Number.isFinite(previousScore)) return null;
@@ -129,7 +132,7 @@ function ScorePageContent() {
       return { value: best.label, detail: "與上一場持平，暫無科目進步", status: "" as const };
     }
     return { value: "暫無進步", detail: `${best.label} 變化最小，${formatScore(best.delta)} 分`, status: "negative" as const };
-  }, [latest, previous]);
+  }, [latest, previous, subjects]);
 
   const goalGap = useMemo(() => {
     if (!latest || !goal) return { value: "未設定", detail: "先新增成績與目標" };
@@ -173,14 +176,14 @@ function ScorePageContent() {
     const totalItem = buildItem("總級分", latest?.totalGrade, goal.targetTotalGrade, "級");
     if (totalItem) items.push(totalItem);
 
-    SUBJECTS.forEach((subject) => {
+    subjects.forEach((subject) => {
       const targetKey = GOAL_KEY_BY_SUBJECT[subject.key];
       const item = buildItem(subject.label, latest ? (latest[subject.gradeKey as keyof ExamRecordDTO] as number | null) : null, goal[targetKey], "級");
       if (item) items.push(item);
     });
 
     return items;
-  }, [goal, latest]);
+  }, [goal, latest, subjects]);
 
   const reviewTagCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -241,6 +244,7 @@ function ScorePageContent() {
       englishGrade: toNum("englishGrade"),
       mathGrade: toNum("mathGrade"),
       scienceGrade: toNum("scienceGrade"),
+      socialGrade: toNum("socialGrade"),
       ...Object.fromEntries(SUBJECTS.flatMap((subject) => [
         ...subject.components.map(({ key }) => [key, toNum(key)]),
         ...BENCHMARKS.map(({ key }) => [`${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`, toNum(`${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`)]),
@@ -262,7 +266,7 @@ function ScorePageContent() {
       (nextRecord as Record<string, number | null | undefined>)[subject.scoreKey] =
         calculateSubjectScore(nextRecord as Record<string, number | null | undefined>, subject);
     }
-    nextRecord.totalGrade = calculateTotalGrade(nextRecord as Record<string, number | null | undefined>);
+    nextRecord.totalGrade = calculateTotalGrade(nextRecord as Record<string, number | null | undefined>, subjects);
 
     if (!nextRecord.examName || !nextRecord.examDate) {
       window.alert("請至少填寫考試名稱與日期。");
@@ -301,6 +305,13 @@ function ScorePageContent() {
       notes: String(formData.get("notes") || "").trim(),
     };
     for (const subject of SUBJECTS) {
+      if (!subjects.includes(subject)) {
+        // Hidden-track subject: keep the stored values untouched.
+        const keep = [subject.scoreKey, subject.gradeKey, ...subject.components.map(({ key }) => key), ...BENCHMARKS.map(({ key }) => `${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`)];
+        if (subject.key === "science") SCIENCE_DETAIL_SCORES.forEach(({ key }) => keep.push(key));
+        keep.forEach((key) => { nextRecord[key] = current[key as keyof ExamRecordDTO] ?? null; });
+        continue;
+      }
       nextRecord[subject.scoreKey] = current[subject.scoreKey as keyof ExamRecordDTO];
       nextRecord[subject.gradeKey] = toNum(subject.gradeKey);
       for (const { key } of subject.components) nextRecord[key] = toNum(key);
@@ -319,7 +330,7 @@ function ScorePageContent() {
     for (const subject of SUBJECTS) {
       nextRecord[subject.scoreKey] = calculateSubjectScore(nextRecord as Record<string, number | null | undefined>, subject);
     }
-    nextRecord.totalGrade = calculateTotalGrade(nextRecord as Record<string, number | null | undefined>);
+    nextRecord.totalGrade = calculateTotalGrade(nextRecord as Record<string, number | null | undefined>, subjects);
     try {
       const response = await fetch(`/api/exam-records/${id}`, {
         method: "PUT",
@@ -368,8 +379,8 @@ function ScorePageContent() {
       targetChineseGrade: toNum("targetChineseGrade"),
       targetEnglishGrade: toNum("targetEnglishGrade"),
       targetMathGrade: toNum("targetMathGrade"),
-      targetScienceGrade: toNum("targetScienceGrade"),
-      targetSocialGrade: goal?.targetSocialGrade ?? null,
+      targetScienceGrade: track === "social" ? goal?.targetScienceGrade ?? null : toNum("targetScienceGrade"),
+      targetSocialGrade: track === "social" ? toNum("targetSocialGrade") : goal?.targetSocialGrade ?? null,
     };
 
     const res = await fetch("/api/goals", {
@@ -472,7 +483,7 @@ function ScorePageContent() {
                     "級"
                   )}
                 />
-                {SUBJECTS.map((subject) => {
+                {subjects.map((subject) => {
                   const latestGrade = latest[subject.gradeKey as keyof ExamRecordDTO] as number | null;
                   const previousGrade = previous ? previous[subject.gradeKey as keyof ExamRecordDTO] as number | null : null;
                   const gradeChange = Number.isFinite(latestGrade) && Number.isFinite(previousGrade)
@@ -549,10 +560,17 @@ function ScorePageContent() {
                 數學級分
                 <input name="targetMathGrade" type="number" defaultValue={goal.targetMathGrade ?? ""} className="border border-line px-3 py-2" />
               </label>
-              <label className="flex flex-col gap-1 text-sm text-muted">
-                自然級分
-                <input name="targetScienceGrade" type="number" defaultValue={goal.targetScienceGrade ?? ""} className="border border-line px-3 py-2" />
-              </label>
+              {track === "social" ? (
+                <label className="flex flex-col gap-1 text-sm text-muted">
+                  社會級分
+                  <input name="targetSocialGrade" type="number" defaultValue={goal.targetSocialGrade ?? ""} className="border border-line px-3 py-2" />
+                </label>
+              ) : (
+                <label className="flex flex-col gap-1 text-sm text-muted">
+                  自然級分
+                  <input name="targetScienceGrade" type="number" defaultValue={goal.targetScienceGrade ?? ""} className="border border-line px-3 py-2" />
+                </label>
+              )}
               <button type="submit" className="col-span-2 mt-2 border border-ink bg-ink px-4 py-2 font-bold text-white">
                 儲存目標
               </button>
@@ -587,7 +605,7 @@ function ScorePageContent() {
         <h2 className="text-xl font-bold">長期成長趨勢</h2>
         <p className="mt-1 text-muted">依每次考試的各科分數觀察成長，長條圖呈現最近一次各題型得分佔該題型滿分的比率。</p>
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {SUBJECTS.map((subject) => {
+          {subjects.map((subject) => {
             const points = records
               .map((record) => ({
                 date: record.examDate,
@@ -654,7 +672,7 @@ function ScorePageContent() {
           <table className="mobile-table w-full min-w-[1500px] border-collapse">
             <thead>
               <tr>
-                {["日期", "考試", "總級分", ...SUBJECTS.map((subject) => subject.label), ...RANK_FIELDS.map((field) => field.label), "標籤", "備註", "操作"].map((h) => (
+                {["日期", "考試", "總級分", ...subjects.map((subject) => subject.label), ...RANK_FIELDS.map((field) => field.label), "標籤", "備註", "操作"].map((h) => (
                   <th key={h} className="border-b border-line bg-[#f9fafb] px-3 py-3.5 text-left font-bold text-muted">
                     {h}
                   </th>
@@ -664,7 +682,7 @@ function ScorePageContent() {
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={6 + SUBJECTS.length + RANK_FIELDS.length} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={6 + subjects.length + RANK_FIELDS.length} className="px-3 py-6 text-center text-muted">
                     目前還沒有任何模擬考紀錄。
                   </td>
                 </tr>
@@ -680,7 +698,7 @@ function ScorePageContent() {
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="examDate" type="date" defaultValue={record.examDate} required className="w-32 border border-line px-2 py-1" /> : record.examDate}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="examName" defaultValue={record.examName} required className="w-36 border border-line px-2 py-1" /> : record.examName}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{formatMaybeNumber(record.totalGrade)}</td>
-                      {SUBJECTS.map((subject) => (
+                      {subjects.map((subject) => (
                         <td key={subject.key} className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
                           {editing ? (
                             <div className="min-w-56 space-y-1.5">
@@ -804,7 +822,7 @@ function ScorePageContent() {
               </div>
 
               <div className="mobile-modal-grid mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                {SUBJECTS.map((subject) => (
+                {subjects.map((subject) => (
                   <article key={subject.key} className="border border-line bg-[#f8fbff] p-3.5">
                     <h3 className="mb-2 font-bold">{subject.label}</h3>
                     <div className="grid grid-cols-2 gap-2">

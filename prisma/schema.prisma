@@ -39,6 +39,9 @@ model ExamRecord {
   mathMixedScore Float?
   scienceChoiceScore Float?
   scienceMixedScore Float?
+  socialHistoryScore Float?
+  socialGeographyScore Float?
+  socialCivicsScore Float?
   physicsScore Float?
   chemistryScore Float?
   biologyScore Float?
@@ -67,6 +70,11 @@ model ExamRecord {
   scienceAverageGrade Float?
   scienceBackGrade Float?
   scienceBottomGrade Float?
+  socialTopGrade Float?
+  socialFrontGrade Float?
+  socialAverageGrade Float?
+  socialBackGrade Float?
+  socialBottomGrade Float?
   classRank Float?
   classTotal Float?
   schoolRank Float?
@@ -152,4 +160,11 @@ model AllowedUser {
   email     String   @unique
   addedBy   String   @default("")
   createdAt DateTime @default(now())
+}
+
+model UserProfile {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  track     String
+  updatedAt DateTime @updatedAt
 }

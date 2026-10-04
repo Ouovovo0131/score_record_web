@@ -20,12 +20,18 @@ import {
   type ReactNode,
 } from "react";
 import { getFirebaseAuth, hasFirebaseConfig } from "@/lib/firebase";
+import { authFetch } from "@/lib/auth-fetch";
+import type { Track } from "@/lib/data";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   error: string | null;
   firebaseConfigured: boolean;
+  // null until the user picks a track; trackLoading is true while it is being fetched.
+  track: Track | null;
+  trackLoading: boolean;
+  setTrack: (track: Track) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -37,6 +43,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const firebaseConfigured = hasFirebaseConfig();
+  const [track, setTrackState] = useState<Track | null>(null);
+  const [trackLoading, setTrackLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTrackState(null);
+      return;
+    }
+    let cancelled = false;
+    setTrackLoading(true);
+    authFetch(user, "/api/profile")
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("profile failed"))))
+      .then((data: { track: Track | null }) => {
+        if (!cancelled) setTrackState(data.track);
+      })
+      .catch(() => {
+        // Profile table unavailable: fall back to science so the app stays usable.
+        if (!cancelled) setTrackState("science");
+      })
+      .finally(() => {
+        if (!cancelled) setTrackLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const setTrack = useCallback(
+    async (next: Track) => {
+      setTrackState(next);
+      await authFetch(user, "/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track: next }),
+      }).catch(() => null);
+    },
+    [user]
+  );
 
   useEffect(() => {
     const auth = getFirebaseAuth();
@@ -100,8 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, error, firebaseConfigured, signInWithGoogle, signOut }),
-    [user, loading, error, firebaseConfigured, signInWithGoogle, signOut]
+    () => ({ user, loading, error, firebaseConfigured, track, trackLoading, setTrack, signInWithGoogle, signOut }),
+    [user, loading, error, firebaseConfigured, track, trackLoading, setTrack, signInWithGoogle, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
