@@ -119,7 +119,6 @@ function StudyPageContent() {
   }
 
   function handleCellClick(key: string) {
-    if (key > todayKey) return;
     setSelected(key);
     setNoteDraft("");
     save(key, !days.has(key));
@@ -132,7 +131,7 @@ function StudyPageContent() {
       <div className="mobile-page-header mb-6 border-b-4 border-ink bg-white py-5">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">Study Tracker</p>
         <h1 className="text-4xl font-extrabold sm:text-5xl">讀書紀錄</h1>
-        <p className="mt-2 max-w-2xl text-muted">點選日期格子標記當天有讀書，格子填色代表有讀；也可以補登過去的日子。</p>
+        <p className="mt-2 max-w-2xl text-muted">點選日期格子標記當天有讀書，格子填色代表有讀；過去的日子可補登，未來的日子也能先標記。</p>
       </div>
 
       {status && <p className="mb-4 border border-danger bg-white px-4 py-3 text-danger">{status}</p>}
@@ -188,13 +187,13 @@ function StudyPageContent() {
                       <button
                         key={key}
                         type="button"
-                        disabled={future || loading}
+                        disabled={loading}
                         onClick={() => handleCellClick(key)}
                         title={`${key}${key === RANGE_END_KEY ? " · 學測" : ""}${studied ? " · 有讀書" : ""}${note ? ` · ${note}` : ""}`}
                         aria-label={`${key}${studied ? " 已讀書" : " 未讀書"}`}
                         aria-pressed={studied}
                         style={{ width: CELL, height: CELL }}
-                        className={`${key === RANGE_END_KEY ? "bg-[#facc15]" : studied ? "bg-[#2563eb]" : future ? "bg-[#f3f4f6]" : "bg-[#e5e7eb] hover:bg-[#cbd5e1]"} ${key === todayKey ? "outline outline-2 outline-ink" : ""} ${key === selected ? "ring-2 ring-primary ring-offset-1" : ""} disabled:cursor-not-allowed`}
+                        className={`${key === RANGE_END_KEY ? "bg-[#facc15]" : studied ? "bg-[#2563eb]" : future ? "bg-[#f3f4f6] hover:bg-[#cbd5e1]" : "bg-[#e5e7eb] hover:bg-[#cbd5e1]"} ${key === todayKey ? "outline outline-2 outline-ink" : ""} ${key === selected ? "ring-2 ring-primary ring-offset-1" : ""} disabled:cursor-wait`}
                       />
                     );
                   })}
