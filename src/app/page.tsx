@@ -66,6 +66,7 @@ interface StudyTask {
   id: string;
   title: string;
   subject: string;
+  kind: "exam" | "review";
   startDate: string;
   endDate: string;
   note: string;
@@ -79,6 +80,11 @@ const TASK_SUBJECTS = [
 
 function subjectMeta(key: string) {
   return TASK_SUBJECTS.find((s) => s.key === key) ?? TASK_SUBJECTS[TASK_SUBJECTS.length - 1];
+}
+
+// Exams sort above reviews; ties keep the chronological order from the API.
+function sortByKind(list: StudyTask[]): StudyTask[] {
+  return [...list].sort((a, b) => Number(b.kind === "exam") - Number(a.kind === "exam"));
 }
 
 function taskCoversDay(task: StudyTask, key: string) {
@@ -277,7 +283,7 @@ function CalendarView({ now }: { now: Date }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [taskError, setTaskError] = useState("");
-  const [form, setForm] = useState({ title: "", subject: "math", endDate: "", note: "" });
+  const [form, setForm] = useState({ kind: "review" as "exam" | "review", title: "", subject: "math", endDate: "", note: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -303,7 +309,7 @@ function CalendarView({ now }: { now: Date }) {
       const res = await fetch("/api/study-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: form.title, subject: form.subject, startDate: selected, endDate: form.endDate || selected, note: form.note }),
+        body: JSON.stringify({ kind: form.kind, title: form.title, subject: form.subject, startDate: selected, endDate: form.endDate || selected, note: form.note }),
       });
       if (!res.ok) throw new Error("save failed");
       const created: StudyTask = await res.json();
@@ -353,7 +359,7 @@ function CalendarView({ now }: { now: Date }) {
 
   const todayKey = toKey(now);
   const selectedList = selected ? byDay.get(selected) ?? [] : [];
-  const selectedTasks = selected ? tasks.filter((t) => taskCoversDay(t, selected)) : [];
+  const selectedTasks = selected ? sortByKind(tasks.filter((t) => taskCoversDay(t, selected))) : [];
   const monthSchedules = FIXED_SCHEDULES.filter((s) => scheduleDays(s).some((k) => k.startsWith(`${year}-${padTime(month + 1)}`)));
 
   return (
@@ -392,7 +398,7 @@ function CalendarView({ now }: { now: Date }) {
           if (day === null) return <div key={`e${i}`} className="min-h-14 bg-[#fcfcfd] sm:min-h-20" />;
           const key = `${year}-${padTime(month + 1)}-${padTime(day)}`;
           const items = byDay.get(key) ?? [];
-          const dayTasks = tasks.filter((t) => taskCoversDay(t, key));
+          const dayTasks = sortByKind(tasks.filter((t) => taskCoversDay(t, key)));
           const isToday = key === todayKey;
           const isSelected = key === selected;
           const past = key < todayKey;
@@ -416,9 +422,9 @@ function CalendarView({ now }: { now: Date }) {
                 <span
                   key={t.id}
                   style={t.done ? undefined : { backgroundColor: subjectMeta(t.subject).color }}
-                  className={`mt-0.5 block truncate px-1 text-[11px] leading-5 sm:text-xs ${t.done ? "bg-[#e5e9f0] text-muted line-through" : "text-white"}`}
+                  className={`mt-0.5 block truncate px-1 text-[11px] leading-5 sm:text-xs ${t.kind === "exam" ? "font-bold" : ""} ${t.done ? "bg-[#e5e9f0] text-muted line-through" : "text-white"}`}
                 >
-                  {t.title}
+                  {t.kind === "exam" ? "考 " : ""}{t.title}
                 </span>
               ))}
               {dayTasks.length > 2 ? <span className="block text-[11px] text-muted">+{dayTasks.length - 2}</span> : null}
@@ -446,7 +452,7 @@ function CalendarView({ now }: { now: Date }) {
             )}
 
             <div className="mt-3 border-t border-line pt-3">
-              <p className="font-bold">複習事項</p>
+              <p className="font-bold">考試 / 複習事項</p>
               {selectedTasks.length ? (
                 <ul className="mt-2 space-y-2">
                   {selectedTasks.map((t) => {
@@ -456,6 +462,9 @@ function CalendarView({ now }: { now: Date }) {
                         <input type="checkbox" checked={t.done} onChange={() => toggleTask(t)} aria-label={`完成 ${t.title}`} className="mt-1.5 h-4 w-4" />
                         <div className="min-w-0 flex-1">
                           <p className={t.done ? "text-muted line-through" : ""}>
+                            <span className={`mr-1 px-1.5 py-0.5 text-xs font-bold ${t.kind === "exam" ? "bg-ink text-white" : "border border-line text-muted"}`}>
+                              {t.kind === "exam" ? "考試" : "複習"}
+                            </span>
                             <span className="mr-2 px-1.5 py-0.5 text-xs font-bold text-white" style={{ backgroundColor: meta.color }}>
                               {meta.label}
                             </span>
@@ -474,7 +483,7 @@ function CalendarView({ now }: { now: Date }) {
                   })}
                 </ul>
               ) : (
-                <p className="mt-1 text-muted">這天沒有複習事項。</p>
+                <p className="mt-1 text-muted">這天沒有考試或複習事項。</p>
               )}
 
               <form
@@ -484,6 +493,18 @@ function CalendarView({ now }: { now: Date }) {
                   void addTask();
                 }}
               >
+                <div className="flex gap-1 sm:col-span-6" role="radiogroup" aria-label="類型">
+                  {(
+                    [
+                      { key: "exam", label: "考試" },
+                      { key: "review", label: "複習" },
+                    ] as const
+                  ).map((k) => (
+                    <button key={k.key} type="button" role="radio" aria-checked={form.kind === k.key} onClick={() => setForm({ ...form, kind: k.key })} className={`border px-4 py-1.5 font-bold ${form.kind === k.key ? "border-primary bg-primary text-white" : "border-line bg-white text-primary"}`}>
+                      {k.label}
+                    </button>
+                  ))}
+                </div>
                 <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="border border-line bg-white p-2 sm:col-span-1" aria-label="科目">
                   {TASK_SUBJECTS.map((s) => (
                     <option key={s.key} value={s.key}>

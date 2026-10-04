@@ -136,6 +136,7 @@ model StudyTask {
   userEmail String
   title     String
   subject   String   @default("other")
+  kind      String   @default("review")
   startDate DateTime @db.Date
   endDate   DateTime @db.Date
   note      String   @default("")

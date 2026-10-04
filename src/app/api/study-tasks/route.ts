@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 const DEFAULT_USER_EMAIL = process.env.NEXT_PUBLIC_ALLOWED_EMAIL || "default@example.com";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SUBJECT_KEYS = ["chinese", "english", "math", "science", "other"];
+const KIND_KEYS = ["exam", "review"];
 
 function toDbDate(date: string): Date {
   return new Date(`${date}T00:00:00.000Z`);
@@ -19,6 +20,7 @@ function serialize(task: {
   id: string;
   title: string;
   subject: string;
+  kind: string;
   startDate: Date;
   endDate: Date;
   note: string;
@@ -28,6 +30,7 @@ function serialize(task: {
     id: task.id,
     title: task.title,
     subject: task.subject,
+    kind: task.kind,
     startDate: task.startDate.toISOString().slice(0, 10),
     endDate: task.endDate.toISOString().slice(0, 10),
     note: task.note,
@@ -56,6 +59,7 @@ export async function POST(request: NextRequest) {
       userEmail: DEFAULT_USER_EMAIL,
       title,
       subject: SUBJECT_KEYS.includes(body.subject) ? body.subject : "other",
+      kind: KIND_KEYS.includes(body.kind) ? body.kind : "review",
       startDate: toDbDate(body.startDate),
       endDate: toDbDate(endDate),
       note: typeof body.note === "string" ? body.note.slice(0, 300) : "",
@@ -74,6 +78,7 @@ export async function PATCH(request: NextRequest) {
   if (typeof body.title === "string" && body.title.trim()) data.title = body.title.trim().slice(0, 100);
   if (typeof body.note === "string") data.note = body.note.slice(0, 300);
   if (SUBJECT_KEYS.includes(body.subject)) data.subject = body.subject;
+  if (KIND_KEYS.includes(body.kind)) data.kind = body.kind;
   if (validDate(body.startDate)) data.startDate = toDbDate(body.startDate);
   if (validDate(body.endDate)) data.endDate = toDbDate(body.endDate);
 
