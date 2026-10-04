@@ -29,6 +29,10 @@ model ExamRecord {
   socialGrade   Float?
   scienceScore  Float?
   scienceGrade  Float?
+  physicsScore      Float?
+  chemistryScore    Float?
+  biologyScore      Float?
+  earthScienceScore Float?
   reviewTags    Json     @default("[]")
   notes         String   @default("")
   createdAt     DateTime @default(now())

@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { InsightCard, Tag, buildComparison } from "@/components/InsightCard";
 import { TrendChart } from "@/components/TrendChart";
-import { RadarChart } from "@/components/RadarChart";
-import { SUBJECTS, average, formatScore } from "@/lib/data";
+import { ScoreRatioChart, buildRatioRows } from "@/components/ScoreRatioChart";
+import { SCIENCE_PARTS, SUBJECTS, average, formatScore } from "@/lib/data";
 import type { ExamRecordDTO, GoalDTO } from "@/lib/types";
 
 function getFiniteValues(values: (number | null | undefined)[]): number[] {
@@ -154,10 +154,13 @@ function ScorePageContent() {
     }))
     .filter((p): p is { date: string; value: number } => Number.isFinite(p.value));
 
-  const averageValues = SUBJECTS.map((subject) =>
-    average(getFiniteValues(records.map((r) => r[subject.scoreKey as keyof ExamRecordDTO] as number | null)))
+  const ratioRows = buildRatioRows(
+    (key) => {
+      const values = getFiniteValues(records.map((r) => r[key as keyof ExamRecordDTO] as number | null));
+      return values.length ? average(values) : null;
+    },
+    (key) => (latest ? (latest[key as keyof ExamRecordDTO] as number | null) : null)
   );
-  const latestValues = SUBJECTS.map((subject) => (latest ? (latest[subject.scoreKey as keyof ExamRecordDTO] as number | null) : null));
 
   async function refresh() {
     const [recordsData, goalData] = await Promise.all([
@@ -191,6 +194,10 @@ function ScorePageContent() {
       socialGrade: toNum("socialGrade"),
       scienceScore: toNum("scienceScore"),
       scienceGrade: toNum("scienceGrade"),
+      physicsScore: toNum("physicsScore"),
+      chemistryScore: toNum("chemistryScore"),
+      biologyScore: toNum("biologyScore"),
+      earthScienceScore: toNum("earthScienceScore"),
       reviewTags: String(formData.get("reviewTags") || "")
         .split(/[\s,，]+/)
         .map((t) => t.trim())
@@ -485,10 +492,10 @@ function ScorePageContent() {
         </section>
 
         <section className="border border-line bg-white p-5">
-          <h2 className="text-xl font-bold">各科戰力分佈</h2>
-          <p className="mt-1 text-muted">以平均表現與最近一次表現疊圖，比較哪一科最需要補強。</p>
+          <h2 className="text-xl font-bold">各科得分比率</h2>
+          <p className="mt-1 text-muted">以「得分 / 滿分」呈現平均與最近一次表現；自然另列物理、化學、生物、地科（各滿分 32）。</p>
           <div className="mt-4">
-            <RadarChart averageValues={averageValues} latestValues={latestValues} />
+            <ScoreRatioChart rows={ratioRows} />
           </div>
           <div className="mt-3.5 flex flex-wrap gap-4 text-muted">
             <span>
@@ -643,6 +650,18 @@ function ScorePageContent() {
                   </article>
                 ))}
               </div>
+
+              <article className="mt-3.5 border border-line bg-[#f8fbff] p-3.5">
+                <h3 className="mb-2 font-bold">自然分項（各科滿分 32）</h3>
+                <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+                  {SCIENCE_PARTS.map((part) => (
+                    <label key={part.key} className="flex flex-col gap-1.5 text-sm text-muted">
+                      {part.label}
+                      <input name={part.scoreKey} type="number" min={0} max={32} step={0.1} className="border border-line px-2.5 py-2" />
+                    </label>
+                  ))}
+                </div>
+              </article>
 
               <label className="mt-4 flex flex-col gap-2 text-muted">
                 失分原因標籤

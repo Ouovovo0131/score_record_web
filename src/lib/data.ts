@@ -18,6 +18,16 @@ export const SUBJECTS: Subject[] = [
   { key: "science", label: "自然", shortLabel: "自", scoreKey: "scienceScore", gradeKey: "scienceGrade" },
 ];
 
+export const SUBJECT_MAX_SCORE = 100;
+export const SCIENCE_MAX_SCORE = 32;
+
+export const SCIENCE_PARTS = [
+  { key: "physics", label: "物理", scoreKey: "physicsScore" },
+  { key: "chemistry", label: "化學", scoreKey: "chemistryScore" },
+  { key: "biology", label: "生物", scoreKey: "biologyScore" },
+  { key: "earthScience", label: "地科", scoreKey: "earthScienceScore" },
+] as const;
+
 export const DEFAULT_RECORDS = [
   {
     id: "mock-1",
@@ -35,6 +45,10 @@ export const DEFAULT_RECORDS = [
     socialGrade: 0,
     scienceScore: 65,
     scienceGrade: 9,
+    physicsScore: null as number | null,
+    chemistryScore: null as number | null,
+    biologyScore: null as number | null,
+    earthScienceScore: null as number | null,
     reviewTags: ["#第一次考", "#沒讀完範圍"],
     notes: "班排 12/30、校排 75/200、總排 13085/39781",
   },

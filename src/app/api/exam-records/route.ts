@@ -24,6 +24,10 @@ function serialize(record: {
   socialGrade: number | null;
   scienceScore: number | null;
   scienceGrade: number | null;
+  physicsScore: number | null;
+  chemistryScore: number | null;
+  biologyScore: number | null;
+  earthScienceScore: number | null;
   reviewTags: unknown;
   notes: string;
 }) {
@@ -62,6 +66,10 @@ export async function POST(request: NextRequest) {
       socialGrade: body.socialGrade ?? null,
       scienceScore: body.scienceScore ?? null,
       scienceGrade: body.scienceGrade ?? null,
+      physicsScore: body.physicsScore ?? null,
+      chemistryScore: body.chemistryScore ?? null,
+      biologyScore: body.biologyScore ?? null,
+      earthScienceScore: body.earthScienceScore ?? null,
       reviewTags: body.reviewTags ?? [],
       notes: body.notes ?? "",
     },

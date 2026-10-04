@@ -17,6 +17,10 @@ export interface ExamRecordDTO {
   socialGrade: number | null;
   scienceScore: number | null;
   scienceGrade: number | null;
+  physicsScore: number | null;
+  chemistryScore: number | null;
+  biologyScore: number | null;
+  earthScienceScore: number | null;
   reviewTags: string[];
   notes: string;
 }
