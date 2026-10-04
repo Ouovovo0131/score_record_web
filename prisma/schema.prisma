@@ -118,3 +118,15 @@ model Goal {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
+
+// One row per day the user studied. A missing row means "did not study".
+model StudyLog {
+  id        String   @id @default(cuid())
+  userEmail String
+  studyDate DateTime @db.Date
+  note      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userEmail, studyDate])
+}
