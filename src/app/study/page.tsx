@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
+import { FIXED_SCHEDULES } from "@/lib/data";
 
 interface StudyLogDTO {
   date: string;
@@ -10,6 +11,14 @@ interface StudyLogDTO {
 
 const CELL = 16;
 const GAP = 3;
+const RANGE_START_KEY = "2026-10-01";
+const GSAT = FIXED_SCHEDULES.find((s) => s.id === "schedule-gsat")!;
+const RANGE_END_KEY = GSAT.startDate;
+
+function parseKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
@@ -50,7 +59,6 @@ function StudyPageContent() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [today] = useState(() => new Date());
-  const [year, setYear] = useState(() => new Date().getFullYear());
   const [selected, setSelected] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
 
@@ -66,12 +74,15 @@ function StudyPageContent() {
   const days = useMemo(() => new Set(logs.keys()), [logs]);
 
   const weeks = useMemo(() => {
-    const first = new Date(year, 0, 1);
+    const first = parseKey(RANGE_START_KEY);
     const start = addDays(first, -first.getDay());
-    const last = new Date(year, 11, 31);
-    const count = Math.ceil((last.getTime() - start.getTime()) / 86400000 / 7) + 1;
+    const last = parseKey(RANGE_END_KEY);
+    const count = Math.floor((last.getTime() - start.getTime()) / 86400000 / 7) + 1;
     return Array.from({ length: count }, (_, w) => Array.from({ length: 7 }, (_, d) => addDays(start, w * 7 + d)));
-  }, [year]);
+  }, []);
+
+  const rangeDays = Math.round((parseKey(RANGE_END_KEY).getTime() - parseKey(RANGE_START_KEY).getTime()) / 86400000) + 1;
+  const daysToGsat = Math.max(0, Math.round((parseKey(RANGE_END_KEY).getTime() - parseKey(todayKey).getTime()) / 86400000));
 
   const stats = useMemo(() => {
     const { current, longest } = computeStreaks(days, today);
@@ -82,9 +93,10 @@ function StudyPageContent() {
     }
     const monthPrefix = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
     const month = [...days].filter((k) => k.startsWith(monthPrefix)).length;
-    const yearTotal = [...days].filter((k) => k.startsWith(`${year}-`)).length;
-    return { current, longest, week, month, monthDays: today.getDate(), yearTotal };
-  }, [days, today, year]);
+    const total = [...days].filter((k) => k >= RANGE_START_KEY && k <= RANGE_END_KEY).length;
+    const elapsed = Math.min(rangeDays, Math.max(0, Math.round((parseKey(todayKey).getTime() - parseKey(RANGE_START_KEY).getTime()) / 86400000) + 1));
+    return { current, longest, week, month, monthDays: today.getDate(), total, elapsed };
+  }, [days, today, todayKey, rangeDays]);
 
   async function save(date: string, studied: boolean, note?: string) {
     const previous = logs;
@@ -131,7 +143,7 @@ function StudyPageContent() {
           { label: "最長連續", value: `${stats.longest} 天` },
           { label: "本週", value: `${stats.week} / 7 天` },
           { label: "本月", value: `${stats.month} / ${stats.monthDays} 天` },
-          { label: `${year} 年累計`, value: `${stats.yearTotal} 天` },
+          { label: "距離學測", value: `${daysToGsat} 天` },
         ].map((item) => (
           <div key={item.label} className="bg-[#f9fafb] p-3 text-center">
             <p className="text-sm text-muted">{item.label}</p>
@@ -142,25 +154,13 @@ function StudyPageContent() {
 
       <section className="mobile-panel mt-5 border border-line bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-bold">{year} 年</h2>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setYear(year - 1)} aria-label="上一年" className="border border-line px-3 py-1.5 font-bold text-primary">
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={() => setYear(today.getFullYear())}
-              disabled={year === today.getFullYear()}
-              className="border border-line px-3 py-1.5 font-bold text-primary disabled:opacity-40"
-            >
-              今年
-            </button>
-            <button type="button" onClick={() => setYear(year + 1)} aria-label="下一年" className="border border-line px-3 py-1.5 font-bold text-primary">
-              ›
-            </button>
+          <div>
+            <h2 className="text-xl font-bold">2026 年 10 月 → 學測</h2>
+            <p className="mt-1 text-sm text-muted">
+              累計讀書 {stats.total} 天 / 已過 {stats.elapsed} 天（全程 {rangeDays} 天）
+            </p>
           </div>
         </div>
-
         <div className="mt-4 overflow-x-auto pb-2">
           <div className="flex w-max" style={{ gap: GAP }}>
             <div className="flex flex-col pr-1 text-xs text-muted" style={{ gap: GAP, paddingTop: 20 }}>
@@ -171,13 +171,14 @@ function StudyPageContent() {
               ))}
             </div>
             {weeks.map((week, index) => {
-              const monthStart = week.find((d) => d.getFullYear() === year && d.getDate() === 1);
+              const monthStart = week.find((d) => toKey(d) >= RANGE_START_KEY && toKey(d) <= RANGE_END_KEY && d.getDate() === 1);
+              const firstWeekLabel = index === 0 ? "10 月" : "";
               return (
                 <div key={index} className="flex flex-col" style={{ gap: GAP }}>
-                  <span className="h-[17px] whitespace-nowrap text-xs leading-[17px] text-muted">{monthStart ? `${monthStart.getMonth() + 1} 月` : ""}</span>
+                  <span className="h-[17px] whitespace-nowrap text-xs leading-[17px] text-muted">{monthStart ? `${monthStart.getMonth() + 1} 月` : firstWeekLabel}</span>
                   {week.map((date) => {
                     const key = toKey(date);
-                    if (date.getFullYear() !== year) {
+                    if (key < RANGE_START_KEY || key > RANGE_END_KEY) {
                       return <span key={key} style={{ width: CELL, height: CELL }} />;
                     }
                     const studied = days.has(key);
@@ -189,11 +190,11 @@ function StudyPageContent() {
                         type="button"
                         disabled={future || loading}
                         onClick={() => handleCellClick(key)}
-                        title={`${key}${studied ? " · 有讀書" : ""}${note ? ` · ${note}` : ""}`}
+                        title={`${key}${key === RANGE_END_KEY ? " · 學測" : ""}${studied ? " · 有讀書" : ""}${note ? ` · ${note}` : ""}`}
                         aria-label={`${key}${studied ? " 已讀書" : " 未讀書"}`}
                         aria-pressed={studied}
                         style={{ width: CELL, height: CELL }}
-                        className={`${studied ? "bg-[#2563eb]" : future ? "bg-[#f3f4f6]" : "bg-[#e5e7eb] hover:bg-[#cbd5e1]"} ${key === todayKey ? "outline outline-2 outline-ink" : ""} ${key === selected ? "ring-2 ring-primary ring-offset-1" : ""} disabled:cursor-not-allowed`}
+                        className={`${key === RANGE_END_KEY ? "bg-[#facc15]" : studied ? "bg-[#2563eb]" : future ? "bg-[#f3f4f6]" : "bg-[#e5e7eb] hover:bg-[#cbd5e1]"} ${key === todayKey ? "outline outline-2 outline-ink" : ""} ${key === selected ? "ring-2 ring-primary ring-offset-1" : ""} disabled:cursor-not-allowed`}
                       />
                     );
                   })}
@@ -212,6 +213,9 @@ function StudyPageContent() {
           </span>
           <span className="flex items-center gap-1.5">
             <i className="inline-block h-3.5 w-3.5 outline outline-2 outline-ink" /> 今天
+          </span>
+          <span className="flex items-center gap-1.5">
+            <i className="inline-block h-3.5 w-3.5 bg-[#facc15]" /> 學測
           </span>
         </div>
 
