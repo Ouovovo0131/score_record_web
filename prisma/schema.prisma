@@ -130,3 +130,18 @@ model StudyLog {
 
   @@unique([userEmail, studyDate])
 }
+
+model StudyTask {
+  id        String   @id @default(cuid())
+  userEmail String
+  title     String
+  subject   String   @default("other")
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  note      String   @default("")
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userEmail, startDate])
+}

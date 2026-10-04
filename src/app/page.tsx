@@ -11,7 +11,7 @@ import {
   parseStartDate,
   stripTime,
 } from "@/lib/countdown";
-import { FIXED_SCHEDULES, type FixedSchedule } from "@/lib/data";
+import { FIXED_SCHEDULES, SUBJECTS, type FixedSchedule } from "@/lib/data";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const DAY_MS = 86400000;
@@ -61,6 +61,29 @@ function splitMs(diffMs: number) {
 }
 
 type ViewMode = "list" | "calendar";
+
+interface StudyTask {
+  id: string;
+  title: string;
+  subject: string;
+  startDate: string;
+  endDate: string;
+  note: string;
+  done: boolean;
+}
+
+const TASK_SUBJECTS = [
+  ...SUBJECTS.map((s, i) => ({ key: s.key as string, label: s.label, color: ["#dc2626", "#16a34a", "#2563eb", "#9333ea"][i] })),
+  { key: "other", label: "其他", color: "#6b7280" },
+];
+
+function subjectMeta(key: string) {
+  return TASK_SUBJECTS.find((s) => s.key === key) ?? TASK_SUBJECTS[TASK_SUBJECTS.length - 1];
+}
+
+function taskCoversDay(task: StudyTask, key: string) {
+  return task.startDate <= key && key <= task.endDate;
+}
 
 export default function CountdownPage() {
   const now = useNow(1000);
@@ -252,6 +275,65 @@ function ListView({ now }: { now: Date }) {
 function CalendarView({ now }: { now: Date }) {
   const [cursor, setCursor] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [selected, setSelected] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<StudyTask[]>([]);
+  const [taskError, setTaskError] = useState("");
+  const [form, setForm] = useState({ title: "", subject: "math", endDate: "", note: "" });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/study-tasks")
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("load failed"))))
+      .then((data: StudyTask[]) => {
+        if (!cancelled) setTasks(data);
+      })
+      .catch(() => {
+        if (!cancelled) setTaskError("無法載入複習事項（請確認資料表已建立）");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function addTask() {
+    if (!selected || !form.title.trim() || saving) return;
+    setSaving(true);
+    setTaskError("");
+    try {
+      const res = await fetch("/api/study-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: form.title, subject: form.subject, startDate: selected, endDate: form.endDate || selected, note: form.note }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      const created: StudyTask = await res.json();
+      setTasks((prev) => [...prev, created].sort((a, b) => a.startDate.localeCompare(b.startDate)));
+      setForm((f) => ({ ...f, title: "", endDate: "", note: "" }));
+    } catch {
+      setTaskError("新增失敗，請確認結束日期不早於開始日期");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleTask(task: StudyTask) {
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, done: !t.done } : t)));
+    const res = await fetch("/api/study-tasks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: task.id, done: !task.done }),
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, done: task.done } : t)));
+      setTaskError("更新失敗");
+    }
+  }
+
+  async function removeTask(task: StudyTask) {
+    const res = await fetch(`/api/study-tasks?id=${encodeURIComponent(task.id)}`, { method: "DELETE" }).catch(() => null);
+    if (res && res.ok) setTasks((prev) => prev.filter((t) => t.id !== task.id));
+    else setTaskError("刪除失敗");
+  }
 
   const byDay = useMemo(() => {
     const map = new Map<string, FixedSchedule[]>();
@@ -271,6 +353,7 @@ function CalendarView({ now }: { now: Date }) {
 
   const todayKey = toKey(now);
   const selectedList = selected ? byDay.get(selected) ?? [] : [];
+  const selectedTasks = selected ? tasks.filter((t) => taskCoversDay(t, selected)) : [];
   const monthSchedules = FIXED_SCHEDULES.filter((s) => scheduleDays(s).some((k) => k.startsWith(`${year}-${padTime(month + 1)}`)));
 
   return (
@@ -309,6 +392,7 @@ function CalendarView({ now }: { now: Date }) {
           if (day === null) return <div key={`e${i}`} className="min-h-14 bg-[#fcfcfd] sm:min-h-20" />;
           const key = `${year}-${padTime(month + 1)}-${padTime(day)}`;
           const items = byDay.get(key) ?? [];
+          const dayTasks = tasks.filter((t) => taskCoversDay(t, key));
           const isToday = key === todayKey;
           const isSelected = key === selected;
           const past = key < todayKey;
@@ -328,6 +412,16 @@ function CalendarView({ now }: { now: Date }) {
                   {s.name}
                 </span>
               ))}
+              {dayTasks.slice(0, 2).map((t) => (
+                <span
+                  key={t.id}
+                  style={t.done ? undefined : { backgroundColor: subjectMeta(t.subject).color }}
+                  className={`mt-0.5 block truncate px-1 text-[11px] leading-5 sm:text-xs ${t.done ? "bg-[#e5e9f0] text-muted line-through" : "text-white"}`}
+                >
+                  {t.title}
+                </span>
+              ))}
+              {dayTasks.length > 2 ? <span className="block text-[11px] text-muted">+{dayTasks.length - 2}</span> : null}
             </button>
           );
         })}
@@ -350,6 +444,65 @@ function CalendarView({ now }: { now: Date }) {
             ) : (
               <p className="mt-1 text-muted">這天沒有考試。</p>
             )}
+
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="font-bold">複習事項</p>
+              {selectedTasks.length ? (
+                <ul className="mt-2 space-y-2">
+                  {selectedTasks.map((t) => {
+                    const meta = subjectMeta(t.subject);
+                    return (
+                      <li key={t.id} className="flex items-start gap-2 bg-white p-2">
+                        <input type="checkbox" checked={t.done} onChange={() => toggleTask(t)} aria-label={`完成 ${t.title}`} className="mt-1.5 h-4 w-4" />
+                        <div className="min-w-0 flex-1">
+                          <p className={t.done ? "text-muted line-through" : ""}>
+                            <span className="mr-2 px-1.5 py-0.5 text-xs font-bold text-white" style={{ backgroundColor: meta.color }}>
+                              {meta.label}
+                            </span>
+                            {t.title}
+                          </p>
+                          <p className="text-xs text-muted">
+                            {t.startDate === t.endDate ? t.startDate : `${t.startDate} ~ ${t.endDate}`}
+                            {t.note ? ` · ${t.note}` : ""}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => removeTask(t)} className="px-2 text-sm font-bold text-muted hover:text-ink" aria-label={`刪除 ${t.title}`}>
+                          刪除
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="mt-1 text-muted">這天沒有複習事項。</p>
+              )}
+
+              <form
+                className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-6"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void addTask();
+                }}
+              >
+                <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="border border-line bg-white p-2 sm:col-span-1" aria-label="科目">
+                  {TASK_SUBJECTS.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={100} placeholder="複習範圍，例如：第三章 三角函數" className="border border-line bg-white p-2 sm:col-span-3" aria-label="事項" />
+                <label className="flex items-center gap-1 text-sm text-muted sm:col-span-2">
+                  到
+                  <input type="date" min={selected} value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className="min-w-0 flex-1 border border-line bg-white p-2" aria-label="結束日期（可留空）" />
+                </label>
+                <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} maxLength={300} placeholder="備註（選填）" className="border border-line bg-white p-2 sm:col-span-5" aria-label="備註" />
+                <button type="submit" disabled={saving || !form.title.trim()} className="bg-primary p-2 font-bold text-white disabled:opacity-50 sm:col-span-1">
+                  新增
+                </button>
+              </form>
+              {taskError ? <p className="mt-2 text-sm text-[#dc2626]">{taskError}</p> : null}
+            </div>
           </>
         ) : monthSchedules.length ? (
           monthSchedules.map((s) => (
