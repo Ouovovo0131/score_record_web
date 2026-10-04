@@ -11,8 +11,9 @@ interface StudyLogDTO {
   note: string;
 }
 
-const CELL = 16;
-const GAP = 3;
+// Cells stay square and large enough to tap; the grid scrolls horizontally on narrow screens.
+const CELL = 28;
+const GAP = 4;
 const RANGE_START_KEY = "2026-10-01";
 const GSAT = FIXED_SCHEDULES.find((s) => s.id === "schedule-gsat")!;
 const RANGE_END_KEY = GSAT.startDate;
@@ -195,7 +196,7 @@ function StudyPageContent() {
                         title={`${key}${key === RANGE_END_KEY ? " · 學測" : ""}${studied ? " · 有讀書" : ""}${note ? ` · ${note}` : ""}`}
                         aria-label={`${key}${studied ? " 已讀書" : " 未讀書"}`}
                         aria-pressed={studied}
-                        style={{ width: CELL, height: CELL }}
+                        style={{ width: CELL, height: CELL, minWidth: CELL, minHeight: CELL }}
                         className={`${key === RANGE_END_KEY ? "bg-[#facc15]" : studied ? "bg-[#2563eb]" : future ? "bg-[#f3f4f6] hover:bg-[#cbd5e1]" : "bg-[#e5e7eb] hover:bg-[#cbd5e1]"} ${key === todayKey ? "outline outline-2 outline-ink" : ""} ${key === selected ? "ring-2 ring-primary ring-offset-1" : ""} disabled:cursor-wait`}
                       />
                     );
