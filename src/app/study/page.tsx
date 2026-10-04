@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
+import { useAuth } from "@/context/AuthContext";
+import { authFetch } from "@/lib/auth-fetch";
 import { FIXED_SCHEDULES } from "@/lib/data";
 
 interface StudyLogDTO {
@@ -55,6 +57,7 @@ function computeStreaks(days: Set<string>, today: Date) {
 }
 
 function StudyPageContent() {
+  const { user } = useAuth();
   const [logs, setLogs] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
@@ -63,12 +66,12 @@ function StudyPageContent() {
   const [noteDraft, setNoteDraft] = useState("");
 
   useEffect(() => {
-    fetch("/api/study-logs")
-      .then((r) => r.json())
+    authFetch(user, "/api/study-logs")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
       .then((data: StudyLogDTO[]) => setLogs(new Map(data.map((l) => [l.date, l.note]))))
       .catch(() => setStatus("讀取資料失敗，請稍後再試。"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   const todayKey = toKey(today);
   const days = useMemo(() => new Set(logs.keys()), [logs]);
@@ -106,7 +109,7 @@ function StudyPageContent() {
     setLogs(next);
     setStatus(null);
 
-    const res = await fetch("/api/study-logs", {
+    const res = await authFetch(user, "/api/study-logs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ date, studied, note }),

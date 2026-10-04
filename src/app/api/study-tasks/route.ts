@@ -1,9 +1,9 @@
 // NOTE: Not protected by server-side auth verification - see the
 // exam-records route for the accepted tradeoff note.
 import { NextRequest, NextResponse } from "next/server";
+import { requireAllowedUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
-const DEFAULT_USER_EMAIL = process.env.NEXT_PUBLIC_ALLOWED_EMAIL || "default@example.com";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SUBJECT_KEYS = ["chinese", "english", "math", "science", "other"];
 const KIND_KEYS = ["exam", "review"];
@@ -38,15 +38,19 @@ function serialize(task: {
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const userEmail = await requireAllowedUser(request);
+  if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const tasks = await prisma.studyTask.findMany({
-    where: { userEmail: DEFAULT_USER_EMAIL },
+    where: { userEmail },
     orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
   });
   return NextResponse.json(tasks.map(serialize));
 }
 
 export async function POST(request: NextRequest) {
+  const userEmail = await requireAllowedUser(request);
+  if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json();
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 100) : "";
   if (!title) return NextResponse.json({ error: "Title required" }, { status: 400 });
@@ -56,7 +60,7 @@ export async function POST(request: NextRequest) {
 
   const task = await prisma.studyTask.create({
     data: {
-      userEmail: DEFAULT_USER_EMAIL,
+      userEmail,
       title,
       subject: SUBJECT_KEYS.includes(body.subject) ? body.subject : "other",
       kind: KIND_KEYS.includes(body.kind) ? body.kind : "review",
@@ -69,6 +73,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const userEmail = await requireAllowedUser(request);
+  if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json();
   const id = String(body.id ?? "");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -82,15 +88,17 @@ export async function PATCH(request: NextRequest) {
   if (validDate(body.startDate)) data.startDate = toDbDate(body.startDate);
   if (validDate(body.endDate)) data.endDate = toDbDate(body.endDate);
 
-  const result = await prisma.studyTask.updateMany({ where: { id, userEmail: DEFAULT_USER_EMAIL }, data });
+  const result = await prisma.studyTask.updateMany({ where: { id, userEmail }, data });
   if (result.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const task = await prisma.studyTask.findUnique({ where: { id } });
+  const task = await prisma.studyTask.findFirst({ where: { id, userEmail } });
   return NextResponse.json(task ? serialize(task) : { id });
 }
 
 export async function DELETE(request: NextRequest) {
+  const userEmail = await requireAllowedUser(request);
+  if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = new URL(request.url).searchParams.get("id") ?? "";
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  await prisma.studyTask.deleteMany({ where: { id, userEmail: DEFAULT_USER_EMAIL } });
+  await prisma.studyTask.deleteMany({ where: { id, userEmail } });
   return NextResponse.json({ id });
 }

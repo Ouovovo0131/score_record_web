@@ -11,6 +11,8 @@ import {
   parseStartDate,
   stripTime,
 } from "@/lib/countdown";
+import { useAuth } from "@/context/AuthContext";
+import { authFetch } from "@/lib/auth-fetch";
 import { FIXED_SCHEDULES, SUBJECTS, type FixedSchedule } from "@/lib/data";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -279,6 +281,7 @@ function ListView({ now }: { now: Date }) {
 }
 
 function CalendarView({ now }: { now: Date }) {
+  const { user } = useAuth();
   const [cursor, setCursor] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [selected, setSelected] = useState<string | null>(null);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
@@ -287,8 +290,9 @@ function CalendarView({ now }: { now: Date }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
-    fetch("/api/study-tasks")
+    authFetch(user, "/api/study-tasks")
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("load failed"))))
       .then((data: StudyTask[]) => {
         if (!cancelled) setTasks(data);
@@ -299,14 +303,14 @@ function CalendarView({ now }: { now: Date }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user]);
 
   async function addTask() {
     if (!selected || !form.title.trim() || saving) return;
     setSaving(true);
     setTaskError("");
     try {
-      const res = await fetch("/api/study-tasks", {
+      const res = await authFetch(user, "/api/study-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: form.kind, title: form.title, subject: form.subject, startDate: selected, endDate: form.endDate || selected, note: form.note }),
@@ -324,7 +328,7 @@ function CalendarView({ now }: { now: Date }) {
 
   async function toggleTask(task: StudyTask) {
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, done: !t.done } : t)));
-    const res = await fetch("/api/study-tasks", {
+    const res = await authFetch(user, "/api/study-tasks", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: task.id, done: !task.done }),
@@ -336,7 +340,7 @@ function CalendarView({ now }: { now: Date }) {
   }
 
   async function removeTask(task: StudyTask) {
-    const res = await fetch(`/api/study-tasks?id=${encodeURIComponent(task.id)}`, { method: "DELETE" }).catch(() => null);
+    const res = await authFetch(user, `/api/study-tasks?id=${encodeURIComponent(task.id)}`, { method: "DELETE" }).catch(() => null);
     if (res && res.ok) setTasks((prev) => prev.filter((t) => t.id !== task.id));
     else setTaskError("刪除失敗");
   }
