@@ -18,6 +18,7 @@ function serialize(record: {
   structureScore: number | null;
   readingScore: number | null;
   mixedScore: number | null;
+  translationScore: number | null;
   notes: string;
 }) {
   return {
@@ -27,6 +28,10 @@ function serialize(record: {
 }
 
 export async function GET() {
+  await prisma.englishRecord.updateMany({
+    where: { userEmail: DEFAULT_USER_EMAIL, practiceType: "miaomiao", translationScore: null },
+    data: { translationScore: 0 },
+  });
   const records = await prisma.englishRecord.findMany({
     where: { userEmail: DEFAULT_USER_EMAIL },
     orderBy: { practiceDate: "asc" },
@@ -50,6 +55,7 @@ export async function POST(request: NextRequest) {
       structureScore: body.structureScore ?? null,
       readingScore: body.readingScore ?? null,
       mixedScore: body.mixedScore ?? null,
+      translationScore: body.translationScore ?? null,
       notes: body.notes ?? "",
     },
   });

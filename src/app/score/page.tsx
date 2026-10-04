@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { InsightCard, Tag, buildComparison } from "@/components/InsightCard";
 import { TrendChart } from "@/components/TrendChart";
-import { ScoreRatioChart, buildRatioRows } from "@/components/ScoreRatioChart";
-import { SCIENCE_PARTS, SUBJECTS, average, formatScore } from "@/lib/data";
+import { BENCHMARKS, RANK_FIELDS, SCIENCE_DETAIL_MAX_SCORE, SCIENCE_DETAIL_SCORES, SUBJECTS, average, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
 import type { ExamRecordDTO, GoalDTO } from "@/lib/types";
 
 function getFiniteValues(values: (number | null | undefined)[]): number[] {
@@ -16,15 +15,59 @@ function formatMaybeNumber(value: number | null | undefined): string {
   return Number.isFinite(value) ? formatScore(value as number) : "—";
 }
 
-function sumGrades(record: Partial<ExamRecordDTO>): number | null {
-  const values = SUBJECTS.map((s) => record[s.gradeKey as keyof ExamRecordDTO] as number | null).filter((v) =>
-    Number.isFinite(v)
-  ) as number[];
-  return values.length ? values.reduce((sum, v) => sum + v, 0) : null;
+function getBenchmarkBand(record: ExamRecordDTO, subjectKey: string, grade: number | null): string {
+  if (!Number.isFinite(grade)) return "級分未填";
+  const thresholds = BENCHMARKS.map((benchmark) => {
+    const key = `${subjectKey}${benchmark.key[0].toUpperCase()}${benchmark.key.slice(1)}Grade` as keyof ExamRecordDTO;
+    return record[key] as number | null;
+  });
+  if (!thresholds.some(Number.isFinite)) return "五標未設定";
+  for (const benchmark of BENCHMARKS) {
+    const key = `${subjectKey}${benchmark.key[0].toUpperCase()}${benchmark.key.slice(1)}Grade` as keyof ExamRecordDTO;
+    const threshold = record[key] as number | null;
+    if (Number.isFinite(threshold) && (grade as number) >= (threshold as number)) return benchmark.label;
+  }
+  return "低於底標";
 }
 
-type MetricKey = "totalScore" | "totalGrade";
+function ScoreRatioBars({
+  title,
+  items,
+}: {
+  title: string;
+  items: { label: string; value: number | null | undefined; max: number }[];
+}) {
+  const hasData = items.some((item) => Number.isFinite(item.value));
 
+  return (
+    <div className="border border-line bg-white p-3">
+      <h4 className="font-bold">{title}題型得分比率（得分 / 滿分）</h4>
+      {!hasData ? (
+        <p className="mt-2 text-sm text-muted">尚無可繪製的題型分數。</p>
+      ) : (
+        <ul className="mt-2 space-y-2 text-sm">
+          {items.map((item) => {
+            const known = Number.isFinite(item.value);
+            const pct = known ? Math.max(0, Math.min(100, ((item.value as number) / item.max) * 100)) : 0;
+            return (
+              <li key={item.label}>
+                <div className="flex justify-between gap-2">
+                  <span>{item.label}</span>
+                  <span className="tabular-nums">
+                    {known ? `${formatScore(item.value as number)} / ${item.max}（${formatScore(pct)}%）` : `— / ${item.max}`}
+                  </span>
+                </div>
+                <div className="mt-1 h-2.5 bg-[#e8eefb]">
+                  <div className="h-full bg-[#3563e9]" style={{ width: `${pct}%` }} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 type GoalGradeKey = "targetChineseGrade" | "targetEnglishGrade" | "targetMathGrade" | "targetSocialGrade" | "targetScienceGrade";
 
 const GOAL_KEY_BY_SUBJECT: Record<string, GoalGradeKey> = {
@@ -41,7 +84,7 @@ function ScorePageContent() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [activeMetric, setActiveMetric] = useState<MetricKey>("totalScore");
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [showGoalForm, setShowGoalForm] = useState(false);
 
   useEffect(() => {
@@ -148,19 +191,31 @@ function ScorePageContent() {
   }, [records]);
 
   const trendPoints = records
-    .map((record) => ({
-      date: record.examDate,
-      value: activeMetric === "totalGrade" ? record.totalGrade : record.totalScore,
-    }))
+    .map((record) => ({ date: record.examDate, value: record.totalGrade }))
     .filter((p): p is { date: string; value: number } => Number.isFinite(p.value));
 
-  const ratioRows = buildRatioRows(
-    (key) => {
-      const values = getFiniteValues(records.map((r) => r[key as keyof ExamRecordDTO] as number | null));
-      return values.length ? average(values) : null;
-    },
-    (key) => (latest ? (latest[key as keyof ExamRecordDTO] as number | null) : null)
-  );
+  const overallRankMovement = (() => {
+    if (!latest || !previous || !Number.isFinite(latest.overallRank) || !Number.isFinite(latest.overallTotal) ||
+      !Number.isFinite(previous.overallRank) || !Number.isFinite(previous.overallTotal) ||
+      (latest.overallTotal as number) <= 0 || (previous.overallTotal as number) <= 0) {
+      return { label: "總排名比率：資料不足", tone: "neutral" as const };
+    }
+    const latestRatio = (latest.overallRank as number) / (latest.overallTotal as number);
+    const previousRatio = (previous.overallRank as number) / (previous.overallTotal as number);
+    if (latestRatio < previousRatio) {
+      return {
+        label: `總排名比率進步 ${formatScore((previousRatio - latestRatio) * 100)} 個百分點（${formatScore(previousRatio * 100)}% → ${formatScore(latestRatio * 100)}%）`,
+        tone: "positive" as const,
+      };
+    }
+    if (latestRatio > previousRatio) {
+      return {
+        label: `總排名比率退步 ${formatScore((latestRatio - previousRatio) * 100)} 個百分點（${formatScore(previousRatio * 100)}% → ${formatScore(latestRatio * 100)}%）`,
+        tone: "negative" as const,
+      };
+    }
+    return { label: `總排名比率持平（${formatScore(latestRatio * 100)}%）`, tone: "neutral" as const };
+  })();
 
   async function refresh() {
     const [recordsData, goalData] = await Promise.all([
@@ -182,22 +237,18 @@ function ScorePageContent() {
     const nextRecord: Partial<ExamRecordDTO> = {
       examName: String(formData.get("examName") || "").trim(),
       examDate: String(formData.get("examDate") || ""),
-      totalScore: toNum("totalScore") ?? undefined,
-      totalGrade: toNum("totalGrade"),
-      chineseScore: toNum("chineseScore"),
       chineseGrade: toNum("chineseGrade"),
-      englishScore: toNum("englishScore"),
       englishGrade: toNum("englishGrade"),
-      mathScore: toNum("mathScore"),
       mathGrade: toNum("mathGrade"),
-      socialScore: toNum("socialScore"),
-      socialGrade: toNum("socialGrade"),
-      scienceScore: toNum("scienceScore"),
       scienceGrade: toNum("scienceGrade"),
-      physicsScore: toNum("physicsScore"),
-      chemistryScore: toNum("chemistryScore"),
-      biologyScore: toNum("biologyScore"),
-      earthScienceScore: toNum("earthScienceScore"),
+      ...Object.fromEntries(SUBJECTS.flatMap((subject) => [
+        ...subject.components.map(({ key }) => [key, toNum(key)]),
+        ...BENCHMARKS.map(({ key }) => [`${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`, toNum(`${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`)]),
+      ])),
+      ...Object.fromEntries(RANK_FIELDS.flatMap(({ key, totalKey }) => [
+        [key, toNum(key)],
+        [totalKey, toNum(totalKey)],
+      ])),
       reviewTags: String(formData.get("reviewTags") || "")
         .split(/[\s,，]+/)
         .map((t) => t.trim())
@@ -207,12 +258,14 @@ function ScorePageContent() {
       notes: String(formData.get("notes") || "").trim(),
     };
 
-    if (nextRecord.totalGrade === null) {
-      nextRecord.totalGrade = sumGrades(nextRecord);
+    for (const subject of SUBJECTS) {
+      (nextRecord as Record<string, number | null | undefined>)[subject.scoreKey] =
+        calculateSubjectScore(nextRecord as Record<string, number | null | undefined>, subject);
     }
+    nextRecord.totalGrade = calculateTotalGrade(nextRecord as Record<string, number | null | undefined>);
 
-    if (!nextRecord.examName || !nextRecord.examDate || !Number.isFinite(nextRecord.totalScore)) {
-      window.alert("請至少填寫考試名稱、日期、總分，並確認數值格式正確。");
+    if (!nextRecord.examName || !nextRecord.examDate) {
+      window.alert("請至少填寫考試名稱與日期。");
       return;
     }
 
@@ -233,14 +286,72 @@ function ScorePageContent() {
     setStatus({ text: "已新增模擬考紀錄。", type: "success" });
   }
 
-  async function handleDeleteRecord(id: string) {
-    const res = await fetch(`/api/exam-records/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      setStatus({ text: "刪除失敗，請稍後再試。", type: "error" });
-      return;
+  async function handleSaveRecord(formEl: HTMLFormElement, id: string, current: ExamRecordDTO) {
+    const formData = new FormData(formEl);
+    const toNum = (key: string) => {
+      const value = formData.get(key);
+      if (value === null || value === "") return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    };
+    const nextRecord: Record<string, unknown> = {
+      examName: String(formData.get("examName") || "").trim(),
+      examDate: String(formData.get("examDate") || ""),
+      reviewTags: String(formData.get("reviewTags") || "").split(/[\s,，]+/).map((tag) => tag.trim()).filter(Boolean),
+      notes: String(formData.get("notes") || "").trim(),
+    };
+    for (const subject of SUBJECTS) {
+      nextRecord[subject.scoreKey] = current[subject.scoreKey as keyof ExamRecordDTO];
+      nextRecord[subject.gradeKey] = toNum(subject.gradeKey);
+      for (const { key } of subject.components) nextRecord[key] = toNum(key);
+      if (subject.key === "science") {
+        SCIENCE_DETAIL_SCORES.forEach(({ key }) => { nextRecord[key] = toNum(key); });
+      }
+      for (const { key } of BENCHMARKS) {
+        const benchmarkKey = `${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`;
+        nextRecord[benchmarkKey] = toNum(benchmarkKey);
+      }
     }
-    await refresh();
-    setStatus({ text: "已刪除該筆成績紀錄。", type: "success" });
+    for (const { key, totalKey } of RANK_FIELDS) {
+      nextRecord[key] = toNum(key);
+      nextRecord[totalKey] = toNum(totalKey);
+    }
+    for (const subject of SUBJECTS) {
+      nextRecord[subject.scoreKey] = calculateSubjectScore(nextRecord as Record<string, number | null | undefined>, subject);
+    }
+    nextRecord.totalGrade = calculateTotalGrade(nextRecord as Record<string, number | null | undefined>);
+    try {
+      const response = await fetch(`/api/exam-records/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextRecord),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        setStatus({
+          text: typeof result?.error === "string"
+            ? `修改成績失敗：${result.error}`
+            : `修改成績失敗（HTTP ${response.status}），請稍後再試。`,
+          type: "error",
+        });
+        return;
+      }
+
+      const savedRecord = (await response.json()) as ExamRecordDTO;
+      setRecords((currentRecords) => currentRecords.map((record) => record.id === id ? savedRecord : record));
+      setEditingRecordId(null);
+      setStatus({ text: "已儲存成績紀錄。", type: "success" });
+
+      try {
+        const recordsResponse = await fetch("/api/exam-records");
+        if (!recordsResponse.ok) throw new Error("Failed to refresh records");
+        setRecords(await recordsResponse.json());
+      } catch {
+        setStatus({ text: "成績已儲存，但重新讀取紀錄失敗；重新整理頁面即可更新顯示。", type: "error" });
+      }
+    } catch {
+      setStatus({ text: "無法連線儲存成績，請檢查網路後重試。", type: "error" });
+    }
   }
 
   async function handleSaveGoal(formEl: HTMLFormElement) {
@@ -258,7 +369,7 @@ function ScorePageContent() {
       targetEnglishGrade: toNum("targetEnglishGrade"),
       targetMathGrade: toNum("targetMathGrade"),
       targetScienceGrade: toNum("targetScienceGrade"),
-      targetSocialGrade: toNum("targetSocialGrade"),
+      targetSocialGrade: goal?.targetSocialGrade ?? null,
     };
 
     const res = await fetch("/api/goals", {
@@ -331,7 +442,16 @@ function ScorePageContent() {
                 <div>
                   <h3 className="text-2xl font-bold">{latest.examName}</h3>
                   <p className="mt-1 text-muted">
-                    {latest.examDate} · 總分 {formatMaybeNumber(latest.totalScore)} / 總級分 {formatMaybeNumber(latest.totalGrade)}
+                    {latest.examDate} · 總級分 {formatMaybeNumber(latest.totalGrade)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    {RANK_FIELDS.map(({ key, totalKey, label }) => `${label} ${formatMaybeNumber(latest[key])}/${formatMaybeNumber(latest[totalKey])}`).join(" · ")}
+                  </p>
+                  <p className={`mt-2 font-bold ${
+                    overallRankMovement.tone === "positive" ? "text-success" :
+                    overallRankMovement.tone === "negative" ? "text-danger" : "text-muted"
+                  }`}>
+                    {overallRankMovement.label}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -340,18 +460,7 @@ function ScorePageContent() {
                   ))}
                 </div>
               </div>
-              <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                <InsightCard
-                  title="總分"
-                  value={formatMaybeNumber(latest.totalScore)}
-                  detail={`總級分 ${formatMaybeNumber(latest.totalGrade)}`}
-                  comparison={buildComparison(
-                    latest.totalScore,
-                    previous ? previous.totalScore : average(getFiniteValues(records.map((r) => r.totalScore))),
-                    previous ? "比上次" : "比平均",
-                    "分"
-                  )}
-                />
+              <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                 <InsightCard
                   title="總級分"
                   value={formatMaybeNumber(latest.totalGrade)}
@@ -364,19 +473,35 @@ function ScorePageContent() {
                   )}
                 />
                 {SUBJECTS.map((subject) => {
-                  const latestScore = latest[subject.scoreKey as keyof ExamRecordDTO] as number | null;
                   const latestGrade = latest[subject.gradeKey as keyof ExamRecordDTO] as number | null;
-                  const baseline = previous
-                    ? (previous[subject.scoreKey as keyof ExamRecordDTO] as number | null)
-                    : average(getFiniteValues(records.map((r) => r[subject.scoreKey as keyof ExamRecordDTO] as number | null)));
+                  const previousGrade = previous ? previous[subject.gradeKey as keyof ExamRecordDTO] as number | null : null;
+                  const gradeChange = Number.isFinite(latestGrade) && Number.isFinite(previousGrade)
+                    ? (latestGrade as number) - (previousGrade as number)
+                    : null;
                   return (
-                    <InsightCard
-                      key={subject.key}
-                      title={subject.label}
-                      value={formatMaybeNumber(latestScore)}
-                      detail={`級分 ${formatMaybeNumber(latestGrade)}`}
-                      comparison={buildComparison(latestScore, baseline, previous ? "比上次" : "比平均", "分")}
-                    />
+                    <article key={subject.key} className="border border-line bg-white p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-bold">{subject.label}</h3>
+                        <span className="border border-primary bg-[#eff4ff] px-2.5 py-1 font-bold text-primary">
+                          {getBenchmarkBand(latest, subject.key, latestGrade)}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-muted">本次級分</p>
+                      <strong className="num-display block text-3xl text-primary">{formatMaybeNumber(latestGrade)}</strong>
+                      <p className={`mt-2 font-bold ${
+                        gradeChange === null ? "text-muted" :
+                        gradeChange > 0 ? "text-success" :
+                        gradeChange < 0 ? "text-danger" : "text-muted"
+                      }`}>
+                        {gradeChange === null
+                          ? "無前次級分可比較"
+                          : gradeChange > 0
+                            ? `較上次進步 ${formatScore(gradeChange)} 級分`
+                            : gradeChange < 0
+                              ? `較上次退步 ${formatScore(Math.abs(gradeChange))} 級分`
+                              : "與上次級分持平"}
+                      </p>
+                    </article>
                   );
                 })}
               </div>
@@ -428,10 +553,6 @@ function ScorePageContent() {
                 自然級分
                 <input name="targetScienceGrade" type="number" defaultValue={goal.targetScienceGrade ?? ""} className="border border-line px-3 py-2" />
               </label>
-              <label className="flex flex-col gap-1 text-sm text-muted">
-                社會級分
-                <input name="targetSocialGrade" type="number" defaultValue={goal.targetSocialGrade ?? ""} className="border border-line px-3 py-2" />
-              </label>
               <button type="submit" className="col-span-2 mt-2 border border-ink bg-ink px-4 py-2 font-bold text-white">
                 儲存目標
               </button>
@@ -462,53 +583,53 @@ function ScorePageContent() {
         </aside>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="mobile-panel border border-line bg-white p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">長期成長趨勢</h2>
-              <p className="mt-1 text-muted">在總分與總級分之間切換，觀察哪個指標更穩定地成長。</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveMetric("totalScore")}
-                className={`border px-4 py-2 font-bold ${activeMetric === "totalScore" ? "border-primary bg-primary text-white" : "border-line bg-white text-primary"}`}
-              >
-                總分曲線
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveMetric("totalGrade")}
-                className={`border px-4 py-2 font-bold ${activeMetric === "totalGrade" ? "border-primary bg-primary text-white" : "border-line bg-white text-primary"}`}
-              >
-                總級分曲線
-              </button>
-            </div>
+      <section className="mobile-panel mt-5 border border-line bg-white p-5">
+        <h2 className="text-xl font-bold">長期成長趨勢</h2>
+        <p className="mt-1 text-muted">依每次考試的各科分數觀察成長，長條圖呈現最近一次各題型得分佔該題型滿分的比率。</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {SUBJECTS.map((subject) => {
+            const points = records
+              .map((record) => ({
+                date: record.examDate,
+                value: record[subject.scoreKey as keyof ExamRecordDTO] as number | null,
+              }))
+              .filter((point): point is { date: string; value: number } => Number.isFinite(point.value));
+            return (
+              <article key={subject.key} className="border border-line bg-[#f9fafb] p-3.5">
+                <h3 className="font-bold">{subject.label}成長趨勢</h3>
+                <div className="mt-2">
+                  <TrendChart points={points} color="#3563e9" emptyMessage={`尚無${subject.label}分數資料。`} />
+                </div>
+                <div className="mt-3">
+                  <ScoreRatioBars
+                    title={subject.label}
+                    items={[
+                      ...subject.components.map(({ key, label, maxScore }) => ({
+                        label,
+                        value: latest ? (latest[key as keyof ExamRecordDTO] as number | null) : null,
+                        max: maxScore ?? 100,
+                      })),
+                      ...(subject.key === "science"
+                        ? SCIENCE_DETAIL_SCORES.map(({ key, label }) => ({
+                            label: `${label}（整科）`,
+                            value: latest ? (latest[key as keyof ExamRecordDTO] as number | null) : null,
+                            max: SCIENCE_DETAIL_MAX_SCORE,
+                          }))
+                        : []),
+                    ]}
+                  />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <div className="mt-5 border-t pt-4">
+          <h3 className="font-bold">總級分長期趨勢</h3>
+          <div className="mt-2">
+            <TrendChart points={trendPoints} color="#20a16b" />
           </div>
-          <div className="mt-4">
-            <TrendChart points={trendPoints} color={activeMetric === "totalGrade" ? "#20a16b" : "#3563e9"} />
-          </div>
-        </section>
-
-        <section className="mobile-panel border border-line bg-white p-5">
-          <h2 className="text-xl font-bold">各科得分比率</h2>
-          <p className="mt-1 text-muted">以「得分 / 滿分」呈現平均與最近一次表現；自然另列物理、化學、生物、地科（各滿分 32）。</p>
-          <div className="mt-4">
-            <ScoreRatioChart rows={ratioRows} />
-          </div>
-          <div className="mt-3.5 flex flex-wrap gap-4 text-muted">
-            <span>
-              <i className="mr-2 inline-block h-3 w-3 rounded-full bg-[#3563e9]" />
-              平均表現
-            </span>
-            <span>
-              <i className="mr-2 inline-block h-3 w-3 rounded-full bg-[#20a16b]" />
-              最近一次
-            </span>
-          </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       <section className="mobile-panel mt-5 border border-line bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -530,10 +651,10 @@ function ScorePageContent() {
         </div>
 
         <div className="mobile-table-wrap mt-4">
-          <table className="mobile-table w-full min-w-[1180px] border-collapse">
+          <table className="mobile-table w-full min-w-[1500px] border-collapse">
             <thead>
               <tr>
-                {["日期", "考試", "總分", "總級分", "國文", "英文", "數A", "社會", "自然", "標籤", "備註", "操作"].map((h) => (
+                {["日期", "考試", "總級分", ...SUBJECTS.map((subject) => subject.label), ...RANK_FIELDS.map((field) => field.label), "標籤", "備註", "操作"].map((h) => (
                   <th key={h} className="border-b border-line bg-[#f9fafb] px-3 py-3.5 text-left font-bold text-muted">
                     {h}
                   </th>
@@ -543,7 +664,7 @@ function ScorePageContent() {
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={6 + SUBJECTS.length + RANK_FIELDS.length} className="px-3 py-6 text-center text-muted">
                     目前還沒有任何模擬考紀錄。
                   </td>
                 </tr>
@@ -551,20 +672,79 @@ function ScorePageContent() {
                 records
                   .slice()
                   .reverse()
-                  .map((record) => (
+                  .map((record) => {
+                    const editing = editingRecordId === record.id;
+                    const formId = `edit-exam-${record.id}`;
+                    return (
                     <tr key={record.id} className="hover:bg-[#f9fafb]">
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{record.examDate}</td>
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{record.examName}</td>
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{formatMaybeNumber(record.totalScore)}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="examDate" type="date" defaultValue={record.examDate} required className="w-32 border border-line px-2 py-1" /> : record.examDate}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="examName" defaultValue={record.examName} required className="w-36 border border-line px-2 py-1" /> : record.examName}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{formatMaybeNumber(record.totalGrade)}</td>
                       {SUBJECTS.map((subject) => (
                         <td key={subject.key} className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
-                          {formatMaybeNumber(record[subject.scoreKey as keyof ExamRecordDTO] as number | null)} /{" "}
-                          {formatMaybeNumber(record[subject.gradeKey as keyof ExamRecordDTO] as number | null)}
+                          {editing ? (
+                            <div className="min-w-56 space-y-1.5">
+                              {subject.components.map(({ key, label, maxScore }) => (
+                                <label key={key} className="flex items-center justify-between gap-2 text-xs text-muted">
+                                  {label}
+                                  <input form={formId} name={key} type="number" min={0} max={maxScore} step={0.1} defaultValue={record[key as keyof ExamRecordDTO] as number | null ?? ""} className="w-20 border border-line px-1.5 py-1" />
+                                </label>
+                              ))}
+                              {subject.key === "science" && SCIENCE_DETAIL_SCORES.map(({ key, label }) => (
+                                <label key={key} className="flex items-center justify-between gap-2 text-xs text-muted">
+                                  {label}整份考卷
+                                  <input form={formId} name={key} type="number" min={0} step={0.1} defaultValue={record[key as keyof ExamRecordDTO] as number | null ?? ""} className="w-20 border border-line px-1.5 py-1" />
+                                </label>
+                              ))}
+                              {subject.key === "science" && (
+                                <p className="text-xs text-muted">
+                                  四科得分合計需等於選擇題與混合題分數總和。
+                                </p>
+                              )}
+                              <label className="flex items-center justify-between gap-2 text-xs font-bold text-muted">
+                                級分
+                                <input form={formId} name={subject.gradeKey} type="number" min={0} max={15} step={1} defaultValue={record[subject.gradeKey as keyof ExamRecordDTO] as number | null ?? ""} className="w-20 border border-line px-1.5 py-1" />
+                              </label>
+                              <div className="border-t pt-1">
+                                {BENCHMARKS.map(({ key, label }) => {
+                                  const benchmarkKey = `${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`;
+                                  return (
+                                    <label key={key} className="mr-1 inline-flex items-center gap-1 text-xs text-muted">
+                                      {label}
+                                      <input form={formId} name={benchmarkKey} type="number" min={0} max={15} step={1} defaultValue={record[benchmarkKey as keyof ExamRecordDTO] as number | null ?? ""} className="w-12 border border-line px-1 py-1" />
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div>{formatMaybeNumber(record[subject.scoreKey as keyof ExamRecordDTO] as number | null)} 分 / {formatMaybeNumber(record[subject.gradeKey as keyof ExamRecordDTO] as number | null)} 級</div>
+                              {subject.key === "science" && (
+                                <small className="block text-muted">
+                                  {SCIENCE_DETAIL_SCORES.map(({ key, label }) => `${label} ${formatMaybeNumber(record[key as keyof ExamRecordDTO] as number | null)}`).join(" · ")}
+                                </small>
+                              )}
+                              <small className="text-muted">{BENCHMARKS.map(({ key, label }) => `${label} ${formatMaybeNumber(record[`${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade` as keyof ExamRecordDTO] as number | null)}`).join(" · ")}</small>
+                            </div>
+                          )}
+                        </td>
+                      ))}
+                      {RANK_FIELDS.map(({ key, totalKey }) => (
+                        <td key={key} className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
+                          {editing ? (
+                            <div className="flex items-center gap-1">
+                              <input form={formId} name={key} type="number" min={1} defaultValue={record[key] ?? ""} className="w-16 border border-line px-1 py-1" aria-label={key} />
+                              /
+                              <input form={formId} name={totalKey} type="number" min={1} defaultValue={record[totalKey] ?? ""} className="w-16 border border-line px-1 py-1" aria-label={totalKey} />
+                            </div>
+                          ) : `${formatMaybeNumber(record[key])}/${formatMaybeNumber(record[totalKey])}`}
                         </td>
                       ))}
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
-                        {(record.reviewTags || []).length ? (
+                        {editing ? (
+                          <input form={formId} name="reviewTags" defaultValue={record.reviewTags.join(" ")} className="w-36 border border-line px-2 py-1" />
+                        ) : (record.reviewTags || []).length ? (
                           <div className="flex flex-wrap gap-1">
                             {record.reviewTags.map((tag) => (
                               <Tag key={tag} label={tag} />
@@ -574,18 +754,20 @@ function ScorePageContent() {
                           "—"
                         )}
                       </td>
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{record.notes || "—"}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <textarea form={formId} name="notes" defaultValue={record.notes} className="w-40 border border-line px-2 py-1" /> : record.notes || "—"}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRecord(record.id)}
-                          className="bg-danger px-3 py-2 font-bold text-white"
-                        >
-                          刪除
-                        </button>
+                        {editing ? (
+                          <form id={formId} onSubmit={(event) => { event.preventDefault(); handleSaveRecord(event.currentTarget, record.id, record); }}>
+                            <button type="submit" className="border border-ink bg-ink px-3 py-2 font-bold text-white">儲存</button>
+                            <button type="button" onClick={() => setEditingRecordId(null)} className="mt-2 border border-line px-3 py-2 font-bold">取消</button>
+                          </form>
+                        ) : (
+                          <button type="button" onClick={() => setEditingRecordId(record.id)} className="border border-line px-3 py-2 font-bold text-primary">修改</button>
+                        )}
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
               )}
             </tbody>
           </table>
@@ -619,49 +801,68 @@ function ScorePageContent() {
                   考試日期
                   <input name="examDate" type="date" required className="border border-line px-3 py-2.5" />
                 </label>
-                <label className="flex flex-col gap-2 text-muted">
-                  總分
-                  <input name="totalScore" type="number" min={0} max={500} step={0.1} placeholder="例：278.5" required className="border border-line px-3 py-2.5" />
-                </label>
-                <label className="flex flex-col gap-2 text-muted">
-                  總級分
-                  <input name="totalGrade" type="number" min={0} max={75} step={1} placeholder="可不填，系統會嘗試加總" className="border border-line px-3 py-2.5" />
-                </label>
               </div>
 
-              <div className="mobile-modal-grid mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
-                {[
-                  { label: "國文", scoreName: "chineseScore", gradeName: "chineseGrade" },
-                  { label: "英文", scoreName: "englishScore", gradeName: "englishGrade" },
-                  { label: "數 A", scoreName: "mathScore", gradeName: "mathGrade" },
-                  { label: "社會", scoreName: "socialScore", gradeName: "socialGrade" },
-                  { label: "自然", scoreName: "scienceScore", gradeName: "scienceGrade" },
-                ].map((s) => (
-                  <article key={s.scoreName} className="border border-line bg-[#f8fbff] p-3.5">
-                    <h3 className="mb-2 font-bold">{s.label}</h3>
-                    <label className="flex flex-col gap-1.5 text-sm text-muted">
-                      分數
-                      <input name={s.scoreName} type="number" min={0} max={100} step={0.1} className="border border-line px-2.5 py-2" />
-                    </label>
-                    <label className="mt-2 flex flex-col gap-1.5 text-sm text-muted">
-                      級分
-                      <input name={s.gradeName} type="number" min={0} max={15} step={1} className="border border-line px-2.5 py-2" />
-                    </label>
+              <div className="mobile-modal-grid mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                {SUBJECTS.map((subject) => (
+                  <article key={subject.key} className="border border-line bg-[#f8fbff] p-3.5">
+                    <h3 className="mb-2 font-bold">{subject.label}</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {subject.components.map(({ key, label, maxScore }) => (
+                        <label key={key} className="flex flex-col gap-1.5 text-sm text-muted">
+                          {label}{maxScore ? `（滿分 ${maxScore}）` : ""}
+                          <input name={key} type="number" min={0} max={maxScore} step={0.1} className="border border-line px-2.5 py-2" />
+                        </label>
+                      ))}
+                      {subject.key === "science" && SCIENCE_DETAIL_SCORES.map(({ key, label }) => (
+                        <label key={key} className="flex flex-col gap-1.5 text-sm text-muted">
+                          {label}整份考卷得分
+                          <input name={key} type="number" min={0} step={0.1} className="border border-line px-2.5 py-2" />
+                        </label>
+                      ))}
+                      {subject.key === "science" && (
+                        <p className="col-span-full text-sm text-muted">
+                          物理、化學、生物、地球科學為整份考卷分類；四科得分合計需等於選擇題與混合題分數總和。
+                        </p>
+                      )}
+                      <label className="flex flex-col gap-1.5 text-sm text-muted">
+                        級分
+                        <input name={subject.gradeKey} type="number" min={0} max={15} step={1} className="border border-line px-2.5 py-2" />
+                      </label>
+                    </div>
+                    <div className="mt-3 border-t pt-2">
+                      <h4 className="mb-1 text-sm font-bold">五標（級分）</h4>
+                      <div className="grid grid-cols-5 gap-1">
+                        {BENCHMARKS.map(({ key, label }) => {
+                          const benchmarkKey = `${subject.key}${key[0].toUpperCase()}${key.slice(1)}Grade`;
+                          return (
+                            <label key={key} className="flex flex-col gap-1 text-xs text-muted">
+                              {label}
+                              <input name={benchmarkKey} type="number" min={0} max={15} step={1} className="w-full border border-line px-1.5 py-2" />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </article>
                 ))}
               </div>
 
-              <article className="mt-3.5 border border-line bg-[#f8fbff] p-3.5">
-                <h3 className="mb-2 font-bold">自然分項（各科滿分 32）</h3>
-                <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-                  {SCIENCE_PARTS.map((part) => (
-                    <label key={part.key} className="flex flex-col gap-1.5 text-sm text-muted">
-                      {part.label}
-                      <input name={part.scoreKey} type="number" min={0} max={32} step={0.1} className="border border-line px-2.5 py-2" />
+              <div className="mt-4 border border-line bg-[#f8fbff] p-3.5">
+                <h3 className="mb-2 font-bold">排名（名次／總人數）</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {RANK_FIELDS.map(({ key, totalKey, label }) => (
+                    <label key={key} className="flex flex-col gap-1.5 text-sm text-muted">
+                      {label}
+                      <span className="flex items-center gap-2">
+                        <input name={key} type="number" min={1} className="w-full border border-line px-2.5 py-2" aria-label={`${label}名次`} />
+                        ／
+                        <input name={totalKey} type="number" min={1} className="w-full border border-line px-2.5 py-2" aria-label={`${label}總人數`} />
+                      </span>
                     </label>
                   ))}
                 </div>
-              </article>
+              </div>
 
               <label className="mt-4 flex flex-col gap-2 text-muted">
                 失分原因標籤

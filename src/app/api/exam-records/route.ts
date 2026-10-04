@@ -1,79 +1,26 @@
-// NOTE: This route is not currently protected by server-side auth verification
-// (no Firebase Admin token check). It relies on the client-side RequireAuth
-// gate only. This is an accepted tradeoff for a personal single-user app —
-// anyone who discovers the API URL could read/write data. Add Firebase Admin
-// ID token verification here if this app is ever made multi-user or public.
+// NOTE: This route is not currently protected by server-side auth
+// verification — see the accepted tradeoff note in the previous version.
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { buildExamRecordData, serializeExamRecord, validateExamRecordData } from "@/lib/exam-record";
 
 const DEFAULT_USER_EMAIL = process.env.NEXT_PUBLIC_ALLOWED_EMAIL || "default@example.com";
-
-function serialize(record: {
-  id: string;
-  examName: string;
-  examDate: Date;
-  totalScore: number;
-  totalGrade: number | null;
-  chineseScore: number | null;
-  chineseGrade: number | null;
-  englishScore: number | null;
-  englishGrade: number | null;
-  mathScore: number | null;
-  mathGrade: number | null;
-  socialScore: number | null;
-  socialGrade: number | null;
-  scienceScore: number | null;
-  scienceGrade: number | null;
-  physicsScore: number | null;
-  chemistryScore: number | null;
-  biologyScore: number | null;
-  earthScienceScore: number | null;
-  reviewTags: unknown;
-  notes: string;
-}) {
-  return {
-    ...record,
-    examDate: record.examDate.toISOString().slice(0, 10),
-    reviewTags: Array.isArray(record.reviewTags) ? record.reviewTags : [],
-  };
-}
 
 export async function GET() {
   const records = await prisma.examRecord.findMany({
     where: { userEmail: DEFAULT_USER_EMAIL },
     orderBy: { examDate: "asc" },
   });
-  return NextResponse.json(records.map(serialize));
+  return NextResponse.json(records.map(serializeExamRecord));
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-
+  const validationError = validateExamRecordData(body);
+  if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+  const data = buildExamRecordData(body);
   const record = await prisma.examRecord.create({
-    data: {
-      userEmail: DEFAULT_USER_EMAIL,
-      examName: body.examName,
-      examDate: new Date(body.examDate),
-      totalScore: body.totalScore,
-      totalGrade: body.totalGrade ?? null,
-      chineseScore: body.chineseScore ?? null,
-      chineseGrade: body.chineseGrade ?? null,
-      englishScore: body.englishScore ?? null,
-      englishGrade: body.englishGrade ?? null,
-      mathScore: body.mathScore ?? null,
-      mathGrade: body.mathGrade ?? null,
-      socialScore: body.socialScore ?? null,
-      socialGrade: body.socialGrade ?? null,
-      scienceScore: body.scienceScore ?? null,
-      scienceGrade: body.scienceGrade ?? null,
-      physicsScore: body.physicsScore ?? null,
-      chemistryScore: body.chemistryScore ?? null,
-      biologyScore: body.biologyScore ?? null,
-      earthScienceScore: body.earthScienceScore ?? null,
-      reviewTags: body.reviewTags ?? [],
-      notes: body.notes ?? "",
-    },
+    data: { ...data, userEmail: DEFAULT_USER_EMAIL },
   });
-
-  return NextResponse.json(serialize(record), { status: 201 });
+  return NextResponse.json(serializeExamRecord(record), { status: 201 });
 }

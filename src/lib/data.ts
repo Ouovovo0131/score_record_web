@@ -3,29 +3,104 @@
 // and default seed data used both by the seed script and the API/UI.
 
 export interface Subject {
-  key: "chinese" | "english" | "math" | "social" | "science";
+  key: "chinese" | "english" | "math" | "science";
   label: string;
   shortLabel: string;
   scoreKey: string;
   gradeKey: string;
+  components: { key: string; label: string; maxScore?: number }[];
 }
 
 export const SUBJECTS: Subject[] = [
-  { key: "chinese", label: "國文", shortLabel: "國", scoreKey: "chineseScore", gradeKey: "chineseGrade" },
-  { key: "english", label: "英文", shortLabel: "英", scoreKey: "englishScore", gradeKey: "englishGrade" },
-  { key: "math", label: "數學 A", shortLabel: "數A", scoreKey: "mathScore", gradeKey: "mathGrade" },
-  { key: "social", label: "社會", shortLabel: "社", scoreKey: "socialScore", gradeKey: "socialGrade" },
-  { key: "science", label: "自然", shortLabel: "自", scoreKey: "scienceScore", gradeKey: "scienceGrade" },
+  {
+    key: "chinese",
+    label: "國文",
+    shortLabel: "國",
+    scoreKey: "chineseScore",
+    gradeKey: "chineseGrade",
+    components: [
+      { key: "chineseComprehensiveScore", label: "國綜", maxScore: 100 },
+      { key: "chineseWritingScore", label: "國寫", maxScore: 50 },
+    ],
+  },
+  {
+    key: "english",
+    label: "英文",
+    shortLabel: "英",
+    scoreKey: "englishScore",
+    gradeKey: "englishGrade",
+    components: [
+      { key: "englishChoiceScore", label: "選擇題", maxScore: 62 },
+      { key: "englishMixedScore", label: "混合題", maxScore: 10 },
+      { key: "englishTranslationScore", label: "翻譯", maxScore: 8 },
+      { key: "englishEssayScore", label: "作文", maxScore: 20 },
+    ],
+  },
+  {
+    key: "math",
+    label: "數學",
+    shortLabel: "數",
+    scoreKey: "mathScore",
+    gradeKey: "mathGrade",
+    components: [
+      { key: "mathChoiceScore", label: "選擇題", maxScore: 85 },
+      { key: "mathMixedScore", label: "混合題", maxScore: 15 },
+    ],
+  },
+  {
+    key: "science",
+    label: "自然",
+    shortLabel: "自",
+    scoreKey: "scienceScore",
+    gradeKey: "scienceGrade",
+    components: [
+      { key: "scienceChoiceScore", label: "選擇題", maxScore: 72 },
+      { key: "scienceMixedScore", label: "混合題", maxScore: 56 },
+    ],
+  },
 ];
 
-export const SUBJECT_MAX_SCORE = 100;
-export const SCIENCE_MAX_SCORE = 32;
+export const SCIENCE_DETAIL_MAX_SCORE = 32;
 
-export const SCIENCE_PARTS = [
-  { key: "physics", label: "物理", scoreKey: "physicsScore" },
-  { key: "chemistry", label: "化學", scoreKey: "chemistryScore" },
-  { key: "biology", label: "生物", scoreKey: "biologyScore" },
-  { key: "earthScience", label: "地科", scoreKey: "earthScienceScore" },
+export const SCIENCE_DETAIL_SCORES = [
+  { key: "physicsScore", legacyKey: "physicsNonChoiceScore", label: "物理" },
+  { key: "chemistryScore", legacyKey: "chemistryNonChoiceScore", label: "化學" },
+  { key: "biologyScore", legacyKey: "biologyNonChoiceScore", label: "生物" },
+  { key: "earthScienceScore", legacyKey: "earthScienceNonChoiceScore", label: "地球科學" },
+] as const;
+
+export function calculateSubjectScore(
+  record: Record<string, number | null | undefined>,
+  subject: Subject
+): number | null {
+  const values = subject.components.map(({ key }) => record[key]);
+  if (!values.some((value) => Number.isFinite(value))) {
+    const legacyScore = record[subject.scoreKey];
+    return Number.isFinite(legacyScore) ? (legacyScore as number) : null;
+  }
+  if (subject.key === "chinese") {
+    return ((record.chineseComprehensiveScore ?? 0) / 2) + (record.chineseWritingScore ?? 0);
+  }
+  return values.reduce<number>((sum, value) => sum + (Number.isFinite(value) ? (value as number) : 0), 0);
+}
+
+export function calculateTotalGrade(record: Record<string, number | null | undefined>): number | null {
+  const grades = SUBJECTS.map(({ gradeKey }) => record[gradeKey]).filter(Number.isFinite) as number[];
+  return grades.length ? grades.reduce((sum, grade) => sum + grade, 0) : null;
+}
+
+export const BENCHMARKS = [
+  { key: "top", label: "頂標" },
+  { key: "front", label: "前標" },
+  { key: "average", label: "均標" },
+  { key: "back", label: "後標" },
+  { key: "bottom", label: "底標" },
+] as const;
+
+export const RANK_FIELDS = [
+  { key: "classRank", totalKey: "classTotal", label: "班排" },
+  { key: "schoolRank", totalKey: "schoolTotal", label: "校排" },
+  { key: "overallRank", totalKey: "overallTotal", label: "總排" },
 ] as const;
 
 export const DEFAULT_RECORDS = [
@@ -45,10 +120,6 @@ export const DEFAULT_RECORDS = [
     socialGrade: 0,
     scienceScore: 65,
     scienceGrade: 9,
-    physicsScore: null as number | null,
-    chemistryScore: null as number | null,
-    biologyScore: null as number | null,
-    earthScienceScore: null as number | null,
     reviewTags: ["#第一次考", "#沒讀完範圍"],
     notes: "班排 12/30、校排 75/200、總排 13085/39781",
   },
@@ -88,15 +159,11 @@ export const ENGLISH_PRACTICE_TYPES = [
 
 export type EnglishPracticeType = (typeof ENGLISH_PRACTICE_TYPES)[number]["key"];
 
-// Total score upper bound for the combined "all" trend view: the sum of every
-// practice type's own full score (80 + 28 = 108). Kept derived from
-// ENGLISH_PRACTICE_TYPES so it automatically stays consistent if a type's
-// max score ever changes.
-export const ENGLISH_TOTAL_MAX_SCORE = ENGLISH_PRACTICE_TYPES.reduce((sum, type) => sum + type.maxScore, 0);
+export const ENGLISH_TOTAL_MAX_SCORE = ENGLISH_PRACTICE_TYPES.find((type) => type.key === "miaomiao")!.maxScore;
 
 export const ENGLISH_UNAVAILABLE_CATEGORY_MAP: Record<string, string[]> = {
   miaomiao: [],
-  cloze: ["vocabularyScore", "readingScore", "mixedScore"],
+  cloze: ["vocabularyScore", "readingScore", "mixedScore", "translationScore"],
 };
 
 export const ENGLISH_CATEGORIES = [
@@ -106,6 +173,7 @@ export const ENGLISH_CATEGORIES = [
   { key: "structureScore", label: "篇章結構", maxScore: 8 },
   { key: "readingScore", label: "閱讀題", maxScore: 24 },
   { key: "mixedScore", label: "混合題", maxScore: 10 },
+  { key: "translationScore", label: "翻譯題", maxScore: 8 },
 ] as const;
 
 export const DEFAULT_ENGLISH_RECORDS = [
