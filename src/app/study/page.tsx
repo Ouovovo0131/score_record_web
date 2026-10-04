@@ -164,7 +164,7 @@ function StudyPageContent() {
           <div className="flex w-max" style={{ gap: GAP }}>
             <div className="flex flex-col pr-1 text-xs text-muted" style={{ gap: GAP, paddingTop: 20 }}>
               {["日", "一", "二", "三", "四", "五", "六"].map((w, i) => (
-                <span key={w} style={{ height: CELL, lineHeight: `${CELL}px` }} className={i % 2 === 0 ? "invisible" : ""}>
+                <span key={w} style={{ height: CELL, lineHeight: `${CELL}px` }} className={i === 0 || i === 6 ? "text-[#9ca3af]" : ""}>
                   {w}
                 </span>
               ))}
