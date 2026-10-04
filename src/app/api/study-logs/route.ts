@@ -1,7 +1,7 @@
 // NOTE: Not protected by server-side auth verification — see the
 // exam-records route for the accepted tradeoff note.
 import { NextRequest, NextResponse } from "next/server";
-import { requireAllowedUser } from "@/lib/auth-server";
+import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -11,7 +11,7 @@ function toDbDate(date: string): Date {
 }
 
 export async function GET(request: NextRequest) {
-  const userEmail = await requireAllowedUser(request);
+  const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const logs = await prisma.studyLog.findMany({
     where: { userEmail },
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
 // studied=true upserts the day (optionally with a note); studied=false removes it.
 export async function PUT(request: NextRequest) {
-  const userEmail = await requireAllowedUser(request);
+  const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json();
   const date = String(body.date ?? "");

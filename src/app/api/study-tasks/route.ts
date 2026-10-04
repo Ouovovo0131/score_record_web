@@ -1,7 +1,7 @@
 // NOTE: Not protected by server-side auth verification - see the
 // exam-records route for the accepted tradeoff note.
 import { NextRequest, NextResponse } from "next/server";
-import { requireAllowedUser } from "@/lib/auth-server";
+import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,7 +39,7 @@ function serialize(task: {
 }
 
 export async function GET(request: NextRequest) {
-  const userEmail = await requireAllowedUser(request);
+  const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const tasks = await prisma.studyTask.findMany({
     where: { userEmail },
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const userEmail = await requireAllowedUser(request);
+  const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json();
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 100) : "";
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const userEmail = await requireAllowedUser(request);
+  const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json();
   const id = String(body.id ?? "");
@@ -95,7 +95,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const userEmail = await requireAllowedUser(request);
+  const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = new URL(request.url).searchParams.get("id") ?? "";
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });

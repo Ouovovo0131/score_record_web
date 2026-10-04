@@ -1,6 +1,5 @@
-// NOTE: Not protected by server-side auth verification — see route.ts comment
-// in the parent directory for details on this accepted tradeoff.
 import { NextRequest, NextResponse } from "next/server";
+import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
 function serialize(record: {
@@ -25,11 +24,13 @@ function serialize(record: {
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const userEmail = await requireDataUser(request);
+  if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const body = await request.json();
 
-  const record = await prisma.englishRecord.update({
-    where: { id },
+  const result = await prisma.englishRecord.updateMany({
+    where: { id, userEmail },
     data: {
       practiceType: body.practiceType,
       practiceDate: new Date(body.practiceDate),
@@ -46,5 +47,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     },
   });
 
+  if (result.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const record = await prisma.englishRecord.findFirst({ where: { id, userEmail } });
+  if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(serialize(record));
 }

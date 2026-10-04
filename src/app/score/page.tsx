@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
+import { authFetch } from "@/lib/auth-fetch";
 import { useAuth } from "@/context/AuthContext";
 import { InsightCard, Tag, buildComparison } from "@/components/InsightCard";
 import { TrendChart } from "@/components/TrendChart";
@@ -80,7 +81,7 @@ const GOAL_KEY_BY_SUBJECT: Record<string, GoalGradeKey> = {
 };
 
 function ScorePageContent() {
-  const { track } = useAuth();
+  const { user, track } = useAuth();
   const subjects = useMemo(() => subjectsForTrack(track), [track]);
   const [records, setRecords] = useState<ExamRecordDTO[]>([]);
   const [goal, setGoal] = useState<GoalDTO | null>(null);
@@ -92,8 +93,8 @@ function ScorePageContent() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/exam-records").then((r) => r.json()),
-      fetch("/api/goals").then((r) => r.json()),
+      authFetch(user, "/api/exam-records").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
+      authFetch(user, "/api/goals").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
     ])
       .then(([recordsData, goalData]) => {
         setRecords(recordsData);
@@ -101,7 +102,7 @@ function ScorePageContent() {
       })
       .catch(() => setStatus({ text: "讀取資料失敗，請稍後再試。", type: "error" }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   const latest = records.at(-1) || null;
   const previous = records.length > 1 ? records.at(-2) : null;
@@ -222,8 +223,8 @@ function ScorePageContent() {
 
   async function refresh() {
     const [recordsData, goalData] = await Promise.all([
-      fetch("/api/exam-records").then((r) => r.json()),
-      fetch("/api/goals").then((r) => r.json()),
+      authFetch(user, "/api/exam-records").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
+      authFetch(user, "/api/goals").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
     ]);
     setRecords(recordsData);
     setGoal(goalData);
@@ -273,7 +274,7 @@ function ScorePageContent() {
       return;
     }
 
-    const res = await fetch("/api/exam-records", {
+    const res = await authFetch(user, "/api/exam-records", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(nextRecord),
@@ -332,7 +333,7 @@ function ScorePageContent() {
     }
     nextRecord.totalGrade = calculateTotalGrade(nextRecord as Record<string, number | null | undefined>, subjects);
     try {
-      const response = await fetch(`/api/exam-records/${id}`, {
+      const response = await authFetch(user, `/api/exam-records/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(nextRecord),
@@ -354,7 +355,7 @@ function ScorePageContent() {
       setStatus({ text: "已儲存成績紀錄。", type: "success" });
 
       try {
-        const recordsResponse = await fetch("/api/exam-records");
+        const recordsResponse = await authFetch(user, "/api/exam-records");
         if (!recordsResponse.ok) throw new Error("Failed to refresh records");
         setRecords(await recordsResponse.json());
       } catch {
@@ -383,7 +384,7 @@ function ScorePageContent() {
       targetSocialGrade: track === "social" ? toNum("targetSocialGrade") : goal?.targetSocialGrade ?? null,
     };
 
-    const res = await fetch("/api/goals", {
+    const res = await authFetch(user, "/api/goals", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(nextGoal),

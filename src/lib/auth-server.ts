@@ -49,6 +49,19 @@ export async function isAllowedEmail(email: string): Promise<boolean> {
   }
 }
 
+// Existing rows were stored under the raw NEXT_PUBLIC_ALLOWED_EMAIL value, so the
+// owner keeps that exact key; every other account uses its own lowercase email.
+export function dataKeyFor(email: string): string {
+  const raw = process.env.NEXT_PUBLIC_ALLOWED_EMAIL || "";
+  return OWNER_EMAIL && email === OWNER_EMAIL ? raw : email;
+}
+
+// Returns the key that scopes this account's data, or null when not allowed.
+export async function requireDataUser(request: Request): Promise<string | null> {
+  const email = await requireAllowedUser(request);
+  return email ? dataKeyFor(email) : null;
+}
+
 // Returns the verified, allowed email or null.
 export async function requireAllowedUser(request: Request): Promise<string | null> {
   const email = await verifyIdToken(request);

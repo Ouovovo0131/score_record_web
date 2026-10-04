@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
+import { authFetch } from "@/lib/auth-fetch";
+import { useAuth } from "@/context/AuthContext";
 import { InsightCard, Tag } from "@/components/InsightCard";
 import { MultiTrendChart } from "@/components/TrendChart";
 import {
@@ -33,6 +35,7 @@ function getPracticeTypeLabel(typeKey: string): string {
 }
 
 function EnglishPageContent() {
+  const { user } = useAuth();
   const [records, setRecords] = useState<EnglishRecordDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -42,15 +45,15 @@ function EnglishPageContent() {
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/english-records")
-      .then((r) => r.json())
+    authFetch(user, "/api/english-records")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
       .then(setRecords)
       .catch(() => setStatus({ text: "讀取英文資料失敗，請稍後再試。", type: "error" }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   async function refresh() {
-    const data = await fetch("/api/english-records").then((r) => r.json());
+    const data = await authFetch(user, "/api/english-records").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))));
     setRecords(data);
   }
 
@@ -218,7 +221,7 @@ function EnglishPageContent() {
       return;
     }
 
-    const res = await fetch("/api/english-records", {
+    const res = await authFetch(user, "/api/english-records", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(record),
@@ -263,7 +266,7 @@ function EnglishPageContent() {
     const scores = ENGLISH_CATEGORIES.map(({ key }) => record[key as keyof EnglishRecordDTO] as number | null)
       .filter(Number.isFinite) as number[];
     record.totalScore = scores.length ? scores.reduce((sum, score) => sum + score, 0) : null;
-    const response = await fetch(`/api/english-records/${id}`, {
+    const response = await authFetch(user, `/api/english-records/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(record),

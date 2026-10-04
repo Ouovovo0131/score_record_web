@@ -1,10 +1,6 @@
-// NOTE: This route is not currently protected by server-side auth
-// verification (no Firebase Admin token check) — see the exam-records route
-// for the same accepted tradeoff note. Relies on client-side RequireAuth only.
 import { NextRequest, NextResponse } from "next/server";
+import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
-
-const DEFAULT_USER_EMAIL = process.env.NEXT_PUBLIC_ALLOWED_EMAIL || "default@example.com";
 
 function serialize(record: {
   id: string;
@@ -27,24 +23,28 @@ function serialize(record: {
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const userEmail = await requireDataUser(request);
+  if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await prisma.englishRecord.updateMany({
-    where: { userEmail: DEFAULT_USER_EMAIL, practiceType: "miaomiao", translationScore: null },
+    where: { userEmail, practiceType: "miaomiao", translationScore: null },
     data: { translationScore: 0 },
   });
   const records = await prisma.englishRecord.findMany({
-    where: { userEmail: DEFAULT_USER_EMAIL },
+    where: { userEmail },
     orderBy: { practiceDate: "asc" },
   });
   return NextResponse.json(records.map(serialize));
 }
 
 export async function POST(request: NextRequest) {
+  const userEmail = await requireDataUser(request);
+  if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json();
 
   const record = await prisma.englishRecord.create({
     data: {
-      userEmail: DEFAULT_USER_EMAIL,
+      userEmail,
       practiceType: body.practiceType,
       practiceDate: new Date(body.practiceDate),
       practiceName: body.practiceName,
