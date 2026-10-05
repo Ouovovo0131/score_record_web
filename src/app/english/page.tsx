@@ -12,8 +12,10 @@ import {
   predictNextValue,
   ENGLISH_CATEGORIES,
   ENGLISH_PRACTICE_TYPES,
+  ENGLISH_PRACTICE_NAME_HINTS,
   ENGLISH_TOTAL_MAX_SCORE,
   ENGLISH_UNAVAILABLE_CATEGORY_MAP,
+  getEnglishCategoryMaxScore,
 } from "@/lib/data";
 import type { EnglishPracticeType } from "@/lib/data";
 import type { EnglishRecordDTO } from "@/lib/types";
@@ -43,6 +45,7 @@ function EnglishPageContent() {
   const [practiceTypeInput, setPracticeTypeInput] = useState<string>("miaomiao");
   const [trendType, setTrendType] = useState<"all" | EnglishPracticeType>("all");
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [editingPracticeTypes, setEditingPracticeTypes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     authFetch(user, "/api/english-records")
@@ -75,9 +78,15 @@ function EnglishPageContent() {
   }
 
   function getCategoryAverageRate(categoryKey: string, practiceType?: string): number | null {
-    const category = ENGLISH_CATEGORIES.find((c) => c.key === categoryKey);
-    if (!category || category.maxScore <= 0) return null;
-    const rates = getCategoryValues(categoryKey, practiceType).map((v) => (v / category.maxScore) * 100);
+    const rates = records
+      .filter((record) => !practiceType || record.practiceType === practiceType)
+      .filter((record) => !isUnavailableCategory(record.practiceType, categoryKey))
+      .map((record) => {
+        const score = record[categoryKey as keyof EnglishRecordDTO] as number | null;
+        const maxScore = getEnglishCategoryMaxScore(categoryKey, record.practiceType);
+        return Number.isFinite(score) && maxScore > 0 ? ((score as number) / maxScore) * 100 : null;
+      })
+      .filter((value): value is number => value !== null);
     return rates.length ? average(rates) : null;
   }
 
@@ -135,7 +144,7 @@ function EnglishPageContent() {
 
   const trendSeries = ENGLISH_PRACTICE_TYPES.map((type) => ({
     key: type.key,
-    color: type.key === "miaomiao" ? "#3563e9" : "#20a16b",
+    color: type.color,
     points: records
       .filter((r) => r.practiceType === type.key && Number.isFinite(r.totalScore))
       .map((r) => ({ date: r.practiceDate, value: r.totalScore as number })),
@@ -175,7 +184,7 @@ function EnglishPageContent() {
       return [{
         value: prediction.value,
         label: `${type.label} ${formatScore(prediction.value)}${prediction.isApproximate ? "（近似）" : ""}`,
-        color: type.key === "miaomiao" ? "#3563e9" : "#20a16b",
+        color: type.color,
       }];
     });
 
@@ -277,6 +286,7 @@ function EnglishPageContent() {
     }
     await refresh();
     setEditingRecordId(null);
+    setEditingPracticeTypes({});
     setStatus({ text: "已儲存英文紀錄。", type: "success" });
   }
 
@@ -291,7 +301,7 @@ function EnglishPageContent() {
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">English Practice Dashboard</p>
           <h1 className="text-4xl font-extrabold sm:text-5xl">英文練習統計</h1>
           <p className="mt-2 max-w-2xl text-muted">
-            分開追蹤妙妙卷與克漏字練習，並把詞彙題、綜合測驗、文意選填、篇章結構、閱讀題、混合題拆開分析。
+            分開追蹤妙妙卷、克漏字與好好學練習，並把各題型分數拆開分析。
           </p>
         </div>
         <button
@@ -313,12 +323,13 @@ function EnglishPageContent() {
         </div>
       )}
 
-      <div className="mobile-stat-grid grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mobile-stat-grid grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard label="總筆數" value={String(records.length)} caption="所有英文練習紀錄" />
         <StatCard label="平均總分" value={totals.length ? formatScore(average(totals)) : "0"} caption="全體練習平均" />
         <StatCard label="最佳總分" value={totals.length ? formatScore(Math.max(...totals)) : "0"} caption="目前最佳表現" />
-        <StatCard label="妙妙卷平均" value={formatTypeAverage("miaomiao")} caption="妙妙卷練習平均" />
-        <StatCard label="克漏字平均" value={formatTypeAverage("cloze")} caption="克漏字練習平均" highlight />
+        {ENGLISH_PRACTICE_TYPES.map((type) => (
+          <StatCard key={type.key} label={`${type.label}平均`} value={formatTypeAverage(type.key)} caption={`${type.label}練習平均`} />
+        ))}
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
@@ -417,7 +428,7 @@ function EnglishPageContent() {
         </div>
         <p className="mt-1 text-muted">
           {trendType === "all"
-            ? `妙妙卷與克漏字分開繪製，Y 軸固定為 0–${ENGLISH_TOTAL_MAX_SCORE} 分，並分別顯示目前最高分與下次預測。`
+            ? `${ENGLISH_PRACTICE_TYPES.map((type) => type.label).join("、")}分開繪製，Y 軸固定為 0–${ENGLISH_TOTAL_MAX_SCORE} 分，並分別顯示目前最高分與下次預測。`
             : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分。`}
           {visibleTrendCount === 1 ? " 資料筆數不足以回歸，預測將以最近一次成績作為近似值。" : ""}
         </p>
@@ -436,20 +447,20 @@ function EnglishPageContent() {
 
       <section className="mobile-panel mt-5 border border-line bg-white p-5">
         <h2 className="text-xl font-bold">題型得分率比較</h2>
-        <p className="mt-1 text-muted">依練習類型比較各題型平均得分率（克漏字沒有詞彙/閱讀/混合題）。</p>
+        <p className="mt-1 text-muted">依練習類型比較各題型平均得分率；克漏字不含詞彙、閱讀、混合及翻譯，好好學不含詞彙。</p>
         <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ENGLISH_CATEGORIES.map((category) => {
-            const miaomiaoRate = getCategoryAverageRate(category.key, "miaomiao");
-            const clozeRate = isUnavailableCategory("cloze", category.key) ? null : getCategoryAverageRate(category.key, "cloze");
             return (
               <article key={category.key} className="border border-line bg-white p-3.5">
                 <p className="font-bold">{category.label}</p>
-                <p className="mt-2 text-sm text-muted">
-                  妙妙卷：<span className="num-display text-ink">{miaomiaoRate !== null ? `${formatScore(miaomiaoRate)}%` : "-"}</span>
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  克漏字：<span className="num-display text-ink">{clozeRate !== null ? `${formatScore(clozeRate)}%` : "-"}</span>
-                </p>
+                {ENGLISH_PRACTICE_TYPES.map((type) => {
+                  const rate = isUnavailableCategory(type.key, category.key) ? null : getCategoryAverageRate(category.key, type.key);
+                  return (
+                    <p key={type.key} className="mt-1 text-sm text-muted">
+                      {type.label}：<span className="num-display text-ink">{rate !== null ? `${formatScore(rate)}%` : "-"}</span>
+                    </p>
+                  );
+                })}
               </article>
             );
           })}
@@ -483,18 +494,19 @@ function EnglishPageContent() {
                   .map((record) => {
                     const editing = editingRecordId === record.id;
                     const formId = `edit-english-${record.id}`;
+                    const editingType = editingPracticeTypes[record.id] || record.practiceType;
                     return (
                     <tr key={record.id} className="hover:bg-[#f9fafb]">
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="practiceDate" type="date" defaultValue={record.practiceDate} className="w-32 border border-line px-2 py-1" /> : record.practiceDate}</td>
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <select form={formId} name="practiceType" defaultValue={record.practiceType} className="border border-line px-2 py-1">{ENGLISH_PRACTICE_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}</select> : getPracticeTypeLabel(record.practiceType)}</td>
-                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="practiceName" defaultValue={record.practiceName} className="w-32 border border-line px-2 py-1" /> : record.practiceName}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <select form={formId} name="practiceType" value={editingType} onChange={(event) => setEditingPracticeTypes((current) => ({ ...current, [record.id]: event.target.value }))} className="border border-line px-2 py-1">{ENGLISH_PRACTICE_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}</select> : getPracticeTypeLabel(record.practiceType)}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="practiceName" defaultValue={record.practiceName} placeholder={ENGLISH_PRACTICE_NAME_HINTS[editingType as EnglishPracticeType]} className="w-32 border border-line px-2 py-1" /> : record.practiceName}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{formatMaybeNumber(record.totalScore)}</td>
                       {ENGLISH_CATEGORIES.map((category) => (
                         <td key={category.key} className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
-                          {isUnavailableCategory(record.practiceType, category.key)
+                          {isUnavailableCategory(editing ? editingType : record.practiceType, category.key)
                             ? "-"
                             : editing
-                              ? <input form={formId} name={category.key} type="number" min={0} max={category.maxScore} step={0.1} defaultValue={record[category.key as keyof EnglishRecordDTO] as number | null ?? ""} className="w-20 border border-line px-2 py-1" aria-label={category.label} />
+                              ? <input form={formId} name={category.key} type="number" min={0} max={getEnglishCategoryMaxScore(category.key, editingType)} step={0.1} defaultValue={record[category.key as keyof EnglishRecordDTO] as number | null ?? ""} className="w-20 border border-line px-2 py-1" aria-label={category.label} />
                               : formatMaybeNumber(record[category.key as keyof EnglishRecordDTO] as number | null)}
                         </td>
                       ))}
@@ -503,7 +515,7 @@ function EnglishPageContent() {
                         {editing ? (
                           <form id={formId} onSubmit={(event) => { event.preventDefault(); handleSaveRecord(event.currentTarget, record.id); }}>
                             <button type="submit" className="border border-ink bg-ink px-3 py-2 font-bold text-white">儲存</button>
-                            <button type="button" onClick={() => setEditingRecordId(null)} className="mt-2 border border-line px-3 py-2 font-bold">取消</button>
+                            <button type="button" onClick={() => { setEditingRecordId(null); setEditingPracticeTypes({}); }} className="mt-2 border border-line px-3 py-2 font-bold">取消</button>
                           </form>
                         ) : (
                           <button type="button" onClick={() => setEditingRecordId(record.id)} className="border border-line px-3 py-2 font-bold text-primary">修改</button>
@@ -558,7 +570,7 @@ function EnglishPageContent() {
                 </label>
                 <label className="flex flex-col gap-2 text-muted">
                   練習名稱
-                  <input name="practiceName" type="text" placeholder="例：妙七" className="border border-line px-3 py-2.5" />
+                  <input name="practiceName" type="text" placeholder={ENGLISH_PRACTICE_NAME_HINTS[practiceTypeInput as EnglishPracticeType]} className="border border-line px-3 py-2.5" />
                 </label>
               </div>
 
@@ -567,12 +579,12 @@ function EnglishPageContent() {
                   const unavailable = isUnavailableCategory(practiceTypeInput, category.key);
                   return (
                     <label key={category.key} className="flex flex-col gap-1.5 text-sm text-muted">
-                      {category.label}（滿分 {category.maxScore}）
+                      {category.label}（滿分 {getEnglishCategoryMaxScore(category.key, practiceTypeInput)}）
                       <input
                         name={category.key}
                         type="number"
                         min={0}
-                        max={category.maxScore}
+                        max={getEnglishCategoryMaxScore(category.key, practiceTypeInput)}
                         step={0.1}
                         disabled={unavailable}
                         placeholder={unavailable ? "不適用" : ""}
@@ -584,8 +596,8 @@ function EnglishPageContent() {
               </div>
 
               <label className="mt-4 flex flex-col gap-2 text-muted">
-                總分（可不填，系統會自動加總）
-                <input name="totalScore" type="number" min={0} step={0.1} className="border border-line px-3 py-2.5" />
+                總分（最高 {ENGLISH_PRACTICE_TYPES.find((type) => type.key === practiceTypeInput)?.maxScore} 分，可不填，系統會自動加總）
+                <input name="totalScore" type="number" min={0} max={ENGLISH_PRACTICE_TYPES.find((type) => type.key === practiceTypeInput)?.maxScore} step={0.1} className="border border-line px-3 py-2.5" />
               </label>
 
               <label className="mt-4 flex flex-col gap-2 text-muted">

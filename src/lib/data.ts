@@ -176,28 +176,78 @@ export const FIXED_SCHEDULES: FixedSchedule[] = [
 ];
 
 export const ENGLISH_PRACTICE_TYPES = [
-  { key: "miaomiao", label: "妙妙卷", maxScore: 80 },
-  { key: "cloze", label: "克漏字", maxScore: 28 },
+  { key: "miaomiao", label: "妙妙卷", maxScore: 80, color: "#3563e9" },
+  { key: "cloze", label: "克漏字", maxScore: 28, color: "#20a16b" },
+  { key: "haohao", label: "好好學", maxScore: 65, color: "#8b5cf6" },
 ] as const;
 
 export type EnglishPracticeType = (typeof ENGLISH_PRACTICE_TYPES)[number]["key"];
 
-export const ENGLISH_TOTAL_MAX_SCORE = ENGLISH_PRACTICE_TYPES.find((type) => type.key === "miaomiao")!.maxScore;
+export const ENGLISH_TOTAL_MAX_SCORE = Math.max(...ENGLISH_PRACTICE_TYPES.map((type) => type.maxScore));
+
+export const ENGLISH_PRACTICE_NAME_HINTS: Record<EnglishPracticeType, string> = {
+  miaomiao: "妙幾",
+  cloze: "主題幾第幾回",
+  haohao: "單元幾",
+};
 
 export const ENGLISH_UNAVAILABLE_CATEGORY_MAP: Record<string, string[]> = {
   miaomiao: [],
   cloze: ["vocabularyScore", "readingScore", "mixedScore", "translationScore"],
+  haohao: ["vocabularyScore"],
 };
 
-export const ENGLISH_CATEGORIES = [
+export const ENGLISH_CATEGORIES: {
+  key: string;
+  label: string;
+  maxScore: number;
+  maxScoreByType?: Partial<Record<EnglishPracticeType, number>>;
+}[] = [
   { key: "vocabularyScore", label: "詞彙題", maxScore: 10 },
-  { key: "clozeScore", label: "綜合測驗", maxScore: 10 },
+  { key: "clozeScore", label: "綜合測驗", maxScore: 10, maxScoreByType: { haohao: 5 } },
   { key: "contextScore", label: "文意選填", maxScore: 10 },
   { key: "structureScore", label: "篇章結構", maxScore: 8 },
-  { key: "readingScore", label: "閱讀題", maxScore: 24 },
+  { key: "readingScore", label: "閱讀測驗", maxScore: 24, maxScoreByType: { haohao: 8 } },
   { key: "mixedScore", label: "混合題", maxScore: 10 },
-  { key: "translationScore", label: "翻譯題", maxScore: 8 },
-] as const;
+  { key: "translationScore", label: "翻譯", maxScore: 8, maxScoreByType: { haohao: 24 } },
+];
+
+export function getEnglishCategoryMaxScore(categoryKey: string, practiceType: string): number {
+  const category = ENGLISH_CATEGORIES.find((item) => item.key === categoryKey);
+  return category?.maxScoreByType?.[practiceType as EnglishPracticeType] ?? category?.maxScore ?? 0;
+}
+
+export function validateEnglishRecordInput(body: Record<string, unknown>): string | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return "Invalid record.";
+  const practiceType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === body.practiceType);
+  if (!practiceType) return "Invalid practice type.";
+  if (typeof body.practiceDate !== "string" || !Number.isFinite(Date.parse(body.practiceDate))) {
+    return "Invalid practice date.";
+  }
+  if (body.practiceName !== undefined && typeof body.practiceName !== "string") {
+    return "Invalid practice name.";
+  }
+
+  for (const category of ENGLISH_CATEGORIES) {
+    const value = body[category.key];
+    if (ENGLISH_UNAVAILABLE_CATEGORY_MAP[practiceType.key].includes(category.key)) {
+      if (value !== null && value !== undefined) return "Score category is unavailable for this practice type.";
+      continue;
+    }
+    if (value !== null && value !== undefined &&
+      (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > getEnglishCategoryMaxScore(category.key, practiceType.key))) {
+      return "Invalid category score.";
+    }
+  }
+
+  const totalScore = body.totalScore;
+  if (totalScore !== null && totalScore !== undefined &&
+    (typeof totalScore !== "number" || !Number.isFinite(totalScore) || totalScore < 0 || totalScore > practiceType.maxScore)) {
+    return "Invalid total score.";
+  }
+
+  return null;
+}
 
 export const DEFAULT_ENGLISH_RECORDS = [
   {
