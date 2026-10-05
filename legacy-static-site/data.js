@@ -224,21 +224,33 @@ window.ScoreRecordApp = {
     { id: "schedule-gsat", name: "學測", startDate: "2027-01-22", endDate: "2027-01-24" },
   ],
   ENGLISH_PRACTICE_TYPES: [
-    { key: "miaomiao", label: "妙妙卷" },
-    { key: "cloze", label: "克漏字" },
+    { key: "miaomiao", label: "妙妙卷", maxScore: 80, color: "#3563e9" },
+    { key: "cloze", label: "克漏字", maxScore: 28, color: "#20a16b" },
+    { key: "haohao", label: "好好學", maxScore: 65, color: "#8b5cf6" },
   ],
+  ENGLISH_PRACTICE_NAME_HINTS: {
+    miaomiao: "妙幾",
+    cloze: "主題幾第幾回",
+    haohao: "單元幾",
+  },
   ENGLISH_UNAVAILABLE_CATEGORY_MAP: {
     miaomiao: [],
-    cloze: ["vocabularyScore", "readingScore", "mixedScore"],
+    cloze: ["vocabularyScore", "readingScore", "mixedScore", "translationScore"],
+    haohao: ["vocabularyScore"],
   },
   ENGLISH_CATEGORIES: [
     { key: "vocabularyScore", label: "詞彙題", maxScore: 10 },
-    { key: "clozeScore", label: "綜合測驗", maxScore: 10 },
+    { key: "clozeScore", label: "綜合測驗", maxScore: 10, maxScoreByType: { haohao: 5 } },
     { key: "contextScore", label: "文意選填", maxScore: 10 },
     { key: "structureScore", label: "篇章結構", maxScore: 8 },
-    { key: "readingScore", label: "閱讀題", maxScore: 24 },
+    { key: "readingScore", label: "閱讀測驗", maxScore: 24, maxScoreByType: { haohao: 8 } },
     { key: "mixedScore", label: "混合題", maxScore: 10 },
+    { key: "translationScore", label: "翻譯", maxScore: 8, maxScoreByType: { haohao: 24 } },
   ],
+  getEnglishCategoryMaxScore(categoryKey, practiceType) {
+    const category = window.ScoreRecordApp.ENGLISH_CATEGORIES.find((item) => item.key === categoryKey);
+    return category?.maxScoreByType?.[practiceType] ?? category?.maxScore ?? 0;
+  },
   DEFAULT_ENGLISH_RECORDS: [
     {
       id: "eng-2026-07-01-miaomiao-1",

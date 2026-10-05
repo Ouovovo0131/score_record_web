@@ -89,8 +89,8 @@ model ExamRecord {
   @@index([userEmail])
 }
 
-// A single English practice record (妙妙卷 / 克漏字). Category scores are
-// nullable because 克漏字 does not have vocabulary/reading/mixed categories.
+// A single English practice record (妙妙卷 / 克漏字 / 好好學). Category
+// scores are nullable because some categories are unavailable by practice type.
 model EnglishRecord {
   id               String   @id @default(cuid())
   userEmail        String

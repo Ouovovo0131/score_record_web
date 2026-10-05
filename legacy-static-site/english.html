@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">English Practice Dashboard</p>
         <h1>英文練習統計</h1>
-        <p class="hero-copy">分開追蹤妙妙卷與克漏字練習，並把詞彙題、綜合測驗、文意選填、篇章結構、閱讀題、混合題拆開分析。</p>
+        <p class="hero-copy">分開追蹤妙妙卷、克漏字與好好學練習，並把各題型分數拆開分析。</p>
       </div>
 
       <div class="hero-actions">
@@ -46,13 +46,18 @@
         </article>
         <article class="panel stat-card">
           <p>妙妙卷平均</p>
-          <strong id="miaomiao-average-score">0</strong>
+          <strong data-practice-average="miaomiao">0</strong>
           <span>妙妙卷練習平均</span>
         </article>
         <article class="panel stat-card highlight-card">
           <p>克漏字平均</p>
-          <strong id="cloze-average-score">0</strong>
+          <strong data-practice-average="cloze">0</strong>
           <span>克漏字練習平均</span>
+        </article>
+        <article class="panel stat-card">
+          <p>好好學平均</p>
+          <strong data-practice-average="haohao">0</strong>
+          <span>好好學練習平均</span>
         </article>
       </section>
 
@@ -92,7 +97,7 @@
         <article class="panel chart-panel">
           <div class="panel-heading">
             <h2>英文總分趨勢</h2>
-            <p>觀察妙妙卷與克漏字在不同日期的整體變化。</p>
+            <p>觀察各類英文練習在不同日期的整體變化。</p>
           </div>
           <div class="chart-wrapper">
             <svg id="english-trend-chart" viewBox="0 0 800 320" role="img" aria-label="英文練習總分趨勢圖"></svg>
@@ -103,7 +108,7 @@
         <article class="panel radar-panel">
           <div class="panel-heading">
             <h2>細分題型分析</h2>
-            <p>依各題型滿分換算得分率，比較妙妙卷與克漏字在六種題型的表現。</p>
+            <p>依各題型滿分換算得分率，比較不同練習類型的表現。</p>
           </div>
           <div class="chart-wrapper">
             <svg id="english-category-chart" viewBox="0 0 520 320" role="img" aria-label="英文細分題型比較圖"></svg>
@@ -112,6 +117,7 @@
           <div class="chart-legend">
             <span><i class="legend-dot average-dot"></i>妙妙卷平均</span>
             <span><i class="legend-dot latest-dot"></i>克漏字平均</span>
+            <span><i class="legend-dot" style="background:#8b5cf6"></i>好好學平均</span>
           </div>
         </article>
       </section>
@@ -137,15 +143,16 @@
                 <th>綜合測驗</th>
                 <th>文意選填</th>
                 <th>篇章結構</th>
-                <th>閱讀題</th>
+                <th>閱讀測驗</th>
                 <th>混合題</th>
+                <th>翻譯</th>
                 <th>備註</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody id="english-records-body">
               <tr class="empty-row">
-                <td colspan="12">目前還沒有英文練習紀錄。</td>
+                <td colspan="13">目前還沒有英文練習紀錄。</td>
               </tr>
             </tbody>
           </table>
@@ -172,6 +179,7 @@
             <select name="practiceType" required>
               <option value="miaomiao">妙妙卷</option>
               <option value="cloze">克漏字</option>
+              <option value="haohao">好好學</option>
             </select>
           </label>
           <label>
@@ -180,7 +188,7 @@
           </label>
           <label>
             <span>練習名稱</span>
-            <input name="practiceName" type="text" placeholder="例：妙幾 or 主題幾第幾回">
+            <input name="practiceName" type="text" placeholder="妙幾">
           </label>
           <label>
             <span>總分</span>
@@ -206,12 +214,16 @@
             <label><span>分數</span><input name="structureScore" type="number" min="0" max="100" step="0.1"></label>
           </article>
           <article class="subject-entry-card">
-            <h3>閱讀題</h3>
+            <h3>閱讀測驗</h3>
             <label><span>分數</span><input name="readingScore" type="number" min="0" max="100" step="0.1"></label>
           </article>
           <article class="subject-entry-card">
             <h3>混合題</h3>
             <label><span>分數</span><input name="mixedScore" type="number" min="0" max="100" step="0.1"></label>
+          </article>
+          <article class="subject-entry-card">
+            <h3>翻譯</h3>
+            <label><span>分數</span><input name="translationScore" type="number" min="0" max="100" step="0.1"></label>
           </article>
         </div>
 
@@ -240,6 +252,7 @@
       <td data-field="structure"></td>
       <td data-field="reading"></td>
       <td data-field="mixed"></td>
+      <td data-field="translation"></td>
       <td data-field="notes"></td>
       <td><button class="table-delete-btn" type="button">刪除</button></td>
     </tr>
