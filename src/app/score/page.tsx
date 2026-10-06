@@ -70,12 +70,13 @@ function ScoreRatioBars({
     </div>
   );
 }
-type GoalGradeKey = "targetChineseGrade" | "targetEnglishGrade" | "targetMathGrade" | "targetSocialGrade" | "targetScienceGrade";
+type GoalGradeKey = "targetChineseGrade" | "targetEnglishGrade" | "targetMathGrade" | "targetMathBGrade" | "targetSocialGrade" | "targetScienceGrade";
 
 const GOAL_KEY_BY_SUBJECT: Record<string, GoalGradeKey> = {
   chinese: "targetChineseGrade",
   english: "targetEnglishGrade",
   math: "targetMathGrade",
+  mathB: "targetMathBGrade",
   social: "targetSocialGrade",
   science: "targetScienceGrade",
 };
@@ -244,6 +245,7 @@ function ScorePageContent() {
       chineseGrade: toNum("chineseGrade"),
       englishGrade: toNum("englishGrade"),
       mathGrade: toNum("mathGrade"),
+      mathBGrade: toNum("mathBGrade"),
       scienceGrade: toNum("scienceGrade"),
       socialGrade: toNum("socialGrade"),
       ...Object.fromEntries(SUBJECTS.flatMap((subject) => [
@@ -380,8 +382,9 @@ function ScorePageContent() {
       targetChineseGrade: toNum("targetChineseGrade"),
       targetEnglishGrade: toNum("targetEnglishGrade"),
       targetMathGrade: toNum("targetMathGrade"),
-      targetScienceGrade: track === "social" ? goal?.targetScienceGrade ?? null : toNum("targetScienceGrade"),
-      targetSocialGrade: track === "social" ? toNum("targetSocialGrade") : goal?.targetSocialGrade ?? null,
+      targetMathBGrade: subjects.some((s) => s.key === "mathB") ? toNum("targetMathBGrade") : goal?.targetMathBGrade ?? null,
+      targetScienceGrade: subjects.some((s) => s.key === "science") ? toNum("targetScienceGrade") : goal?.targetScienceGrade ?? null,
+      targetSocialGrade: subjects.some((s) => s.key === "social") ? toNum("targetSocialGrade") : goal?.targetSocialGrade ?? null,
     };
 
     const res = await authFetch(user, "/api/goals", {
@@ -558,15 +561,22 @@ function ScorePageContent() {
                 <input name="targetEnglishGrade" type="number" defaultValue={goal.targetEnglishGrade ?? ""} className="border border-line px-3 py-2" />
               </label>
               <label className="flex flex-col gap-1 text-sm text-muted">
-                數學級分
+                數A級分
                 <input name="targetMathGrade" type="number" defaultValue={goal.targetMathGrade ?? ""} className="border border-line px-3 py-2" />
               </label>
-              {track === "social" ? (
+              {subjects.some((s) => s.key === "mathB") && (
+                <label className="flex flex-col gap-1 text-sm text-muted">
+                  數B級分
+                  <input name="targetMathBGrade" type="number" defaultValue={goal.targetMathBGrade ?? ""} className="border border-line px-3 py-2" />
+                </label>
+              )}
+              {subjects.some((s) => s.key === "social") && (
                 <label className="flex flex-col gap-1 text-sm text-muted">
                   社會級分
                   <input name="targetSocialGrade" type="number" defaultValue={goal.targetSocialGrade ?? ""} className="border border-line px-3 py-2" />
                 </label>
-              ) : (
+              )}
+              {subjects.some((s) => s.key === "science") && (
                 <label className="flex flex-col gap-1 text-sm text-muted">
                   自然級分
                   <input name="targetScienceGrade" type="number" defaultValue={goal.targetScienceGrade ?? ""} className="border border-line px-3 py-2" />

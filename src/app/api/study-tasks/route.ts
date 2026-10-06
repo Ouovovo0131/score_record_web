@@ -5,7 +5,7 @@ import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const SUBJECT_KEYS = ["chinese", "english", "math", "science", "social", "other"];
+const SUBJECT_KEYS = ["chinese", "english", "math", "mathB", "science", "social", "other"];
 const KIND_KEYS = ["exam", "review"];
 
 function toDbDate(date: string): Date {

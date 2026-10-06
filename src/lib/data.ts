@@ -3,7 +3,7 @@
 // and default seed data used both by the seed script and the API/UI.
 
 export interface Subject {
-  key: "chinese" | "english" | "math" | "science" | "social";
+  key: "chinese" | "english" | "math" | "mathB" | "science" | "social";
   label: string;
   shortLabel: string;
   scoreKey: string;
@@ -38,13 +38,24 @@ export const SUBJECTS: Subject[] = [
   },
   {
     key: "math",
-    label: "數學",
-    shortLabel: "數",
+    label: "數A",
+    shortLabel: "數A",
     scoreKey: "mathScore",
     gradeKey: "mathGrade",
     components: [
       { key: "mathChoiceScore", label: "選擇題", maxScore: 85 },
       { key: "mathMixedScore", label: "混合題", maxScore: 15 },
+    ],
+  },
+  {
+    key: "mathB",
+    label: "數B",
+    shortLabel: "數B",
+    scoreKey: "mathBScore",
+    gradeKey: "mathBGrade",
+    components: [
+      { key: "mathBChoiceScore", label: "選擇題", maxScore: 85 },
+      { key: "mathBMixedScore", label: "混合題", maxScore: 15 },
     ],
   },
   {
@@ -72,14 +83,16 @@ export const SUBJECTS: Subject[] = [
   },
 ];
 
-export type Track = "science" | "social";
+export type Track = "science" | "social" | "all";
 
-export const TRACK_LABELS: Record<Track, string> = { science: "自然組", social: "社會組" };
+export const TRACK_LABELS: Record<Track, string> = { science: "自然組", social: "社會組", all: "全科" };
 
-// Each track shows Chinese/English/Math plus its own elective group.
+// Science: Chinese/English/Math A + Science. Social: Chinese/English/Math A + Math B + Social.
+// All: every subject.
 export function subjectsForTrack(track: Track | null | undefined): Subject[] {
-  const hidden = track === "social" ? "science" : "social";
-  return SUBJECTS.filter((subject) => subject.key !== hidden);
+  if (track === "all") return SUBJECTS;
+  const hidden: Subject["key"][] = track === "social" ? ["science"] : ["social", "mathB"];
+  return SUBJECTS.filter((subject) => !hidden.includes(subject.key));
 }
 
 export const SCIENCE_DETAIL_MAX_SCORE = 32;
@@ -154,6 +167,7 @@ export const DEFAULT_GOALS = {
   targetChineseGrade: 12,
   targetEnglishGrade: 13,
   targetMathGrade: 15,
+  targetMathBGrade: null as number | null,
   targetSocialGrade: null as number | null,
   targetScienceGrade: 14,
 };

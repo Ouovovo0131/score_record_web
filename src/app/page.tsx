@@ -75,7 +75,7 @@ interface StudyTask {
   done: boolean;
 }
 
-const SUBJECT_COLORS: Record<string, string> = { chinese: "#dc2626", english: "#16a34a", math: "#2563eb", science: "#9333ea", social: "#ea580c" };
+const SUBJECT_COLORS: Record<string, string> = { chinese: "#dc2626", english: "#16a34a", math: "#2563eb", mathB: "#0891b2", science: "#9333ea", social: "#ea580c" };
 
 const TASK_SUBJECTS = [
   ...SUBJECTS.map((s) => ({ key: s.key as string, label: s.label, color: SUBJECT_COLORS[s.key] })),
@@ -512,7 +512,7 @@ function CalendarView({ now }: { now: Date }) {
                   ))}
                 </div>
                 <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="border border-line bg-white p-2 sm:col-span-1" aria-label="科目">
-                  {TASK_SUBJECTS.filter((s) => s.key !== (track === "social" ? "science" : "social")).map((s) => (
+                  {TASK_SUBJECTS.filter((s) => track === "all" || !(track === "social" ? ["science"] : ["social", "mathB"]).includes(s.key)).map((s) => (
                     <option key={s.key} value={s.key}>
                       {s.label}
                     </option>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAllowedUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
-const TRACKS = ["science", "social"];
+const TRACKS = ["science", "social", "all"];
 
 export async function GET(request: NextRequest) {
   const email = await requireAllowedUser(request);

@@ -12,6 +12,10 @@ export interface ExamRecordDTO {
   englishGrade: number | null;
   mathScore: number | null;
   mathGrade: number | null;
+  mathBScore: number | null;
+  mathBGrade: number | null;
+  mathBChoiceScore: number | null;
+  mathBMixedScore: number | null;
   scienceScore: number | null;
   scienceGrade: number | null;
   chineseComprehensiveScore: number | null;
@@ -43,6 +47,11 @@ export interface ExamRecordDTO {
   mathAverageGrade: number | null;
   mathBackGrade: number | null;
   mathBottomGrade: number | null;
+  mathBTopGrade: number | null;
+  mathBFrontGrade: number | null;
+  mathBAverageGrade: number | null;
+  mathBBackGrade: number | null;
+  mathBBottomGrade: number | null;
   scienceTopGrade: number | null;
   scienceFrontGrade: number | null;
   scienceAverageGrade: number | null;
@@ -80,6 +89,7 @@ export interface GoalDTO {
   targetChineseGrade: number | null;
   targetEnglishGrade: number | null;
   targetMathGrade: number | null;
+  targetMathBGrade: number | null;
   targetScienceGrade: number | null;
   targetSocialGrade: number | null;
 }
