@@ -1,5 +1,5 @@
 import type { ExamRecord, Prisma } from "@prisma/client";
-import { BENCHMARKS, SCIENCE_DETAIL_SCORES, SUBJECTS, calculateSubjectScore, calculateTotalGrade } from "@/lib/data";
+import { BENCHMARKS, SCIENCE_DETAIL_SCORES, SUBJECTS, calculateSubjectScore, calculateTotalGrade, inferTrackSubjects } from "@/lib/data";
 
 const COMPONENT_KEYS = SUBJECTS.flatMap((subject) => subject.components.map(({ key }) => key));
 const BENCHMARK_KEYS = SUBJECTS.flatMap((subject) =>
@@ -87,7 +87,7 @@ export function buildExamRecordData(body: Record<string, unknown>): Prisma.ExamR
     examName: String(body.examName || "").trim(),
     examDate: new Date(String(body.examDate || "")),
     totalScore: 0,
-    totalGrade: calculateTotalGrade(values),
+    totalGrade: calculateTotalGrade(values, inferTrackSubjects(values)),
     ...values,
     reviewTags: Array.isArray(body.reviewTags) ? body.reviewTags : [],
     notes: String(body.notes || ""),
@@ -106,7 +106,7 @@ export function serializeExamRecord(record: ExamRecord) {
     ...publicRecord,
     ...values,
     ...Object.fromEntries(SUBJECTS.map(({ scoreKey }) => [scoreKey, values[scoreKey]])),
-    totalGrade: calculateTotalGrade(values) ?? record.totalGrade,
+    totalGrade: calculateTotalGrade(values, inferTrackSubjects(values)) ?? record.totalGrade,
     examDate: record.examDate.toISOString().slice(0, 10),
     reviewTags: Array.isArray(record.reviewTags) ? record.reviewTags : [],
   };
