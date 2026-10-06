@@ -37,7 +37,8 @@ export function validateExamRecordData(body: Record<string, unknown>): string | 
     return "分數不可小於 0。";
   }
   if (Number(values.englishScore) > 100) return "英文分數不可超過 100 分。";
-  if (Number(values.mathScore) > 100) return "數學分數不可超過 100 分。";
+  if (Number(values.mathScore) > 100) return "數A分數不可超過 100 分。";
+  if (Number(values.mathBScore) > 100) return "數B分數不可超過 100 分。";
   if (Number(values.scienceChoiceScore) > 72) return "自然選擇題不可超過 72 分。";
   if (Number(values.scienceMixedScore) > 56) return "自然混合題不可超過 56 分。";
   const scienceDetailsEntered = SCIENCE_DETAIL_SCORES.some(({ key }) => values[key] !== null);
