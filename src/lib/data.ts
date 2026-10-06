@@ -120,9 +120,25 @@ export function calculateSubjectScore(
   return values.reduce<number>((sum, value) => sum + (Number.isFinite(value) ? (value as number) : 0), 0);
 }
 
+// Social track: 數A and 數B are distinct subjects but only one counts toward the total (the higher grade).
+// Other views sum every given subject.
 export function calculateTotalGrade(record: Record<string, number | null | undefined>, subjects: Subject[] = SUBJECTS): number | null {
-  const grades = subjects.map(({ gradeKey }) => record[gradeKey]).filter(Number.isFinite) as number[];
+  const isSocial = subjects.some((s) => s.key === "social") && !subjects.some((s) => s.key === "science");
+  const mathKeys = isSocial ? subjects.filter((s) => s.key === "math" || s.key === "mathB") : [];
+  const grades = subjects
+    .filter((s) => !mathKeys.includes(s))
+    .map(({ gradeKey }) => record[gradeKey])
+    .filter(Number.isFinite) as number[];
+  const mathGrades = mathKeys.map(({ gradeKey }) => record[gradeKey]).filter(Number.isFinite) as number[];
+  if (mathGrades.length) grades.push(Math.max(...mathGrades));
   return grades.length ? grades.reduce((sum, grade) => sum + grade, 0) : null;
+}
+
+// The server does not receive the track, so infer it from which grades are filled in.
+export function inferTrackSubjects(record: Record<string, number | null | undefined>): Subject[] {
+  const has = (k: string) => Number.isFinite(record[k]);
+  if (has("scienceGrade")) return has("socialGrade") ? SUBJECTS : subjectsForTrack("science");
+  return has("socialGrade") || has("mathBGrade") ? subjectsForTrack("social") : subjectsForTrack("science");
 }
 
 export const BENCHMARKS = [
