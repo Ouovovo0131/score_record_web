@@ -177,6 +177,7 @@ export const FIXED_SCHEDULES: FixedSchedule[] = [
 
 export const ENGLISH_PRACTICE_TYPES = [
   { key: "miaomiao", label: "妙妙卷", maxScore: 80 },
+  { key: "pastPaper", label: "歷屆試題", maxScore: 80 },
   { key: "cloze", label: "克漏字", maxScore: 28 },
 ] as const;
 
@@ -186,6 +187,7 @@ export const ENGLISH_TOTAL_MAX_SCORE = ENGLISH_PRACTICE_TYPES.find((type) => typ
 
 export const ENGLISH_UNAVAILABLE_CATEGORY_MAP: Record<string, string[]> = {
   miaomiao: [],
+  pastPaper: [],
   cloze: ["vocabularyScore", "readingScore", "mixedScore", "translationScore"],
 };
 

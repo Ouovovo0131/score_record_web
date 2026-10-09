@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await prisma.englishRecord.updateMany({
-    where: { userEmail, practiceType: "miaomiao", translationScore: null },
+    where: { userEmail, practiceType: { in: ["miaomiao", "pastPaper"] }, translationScore: null },
     data: { translationScore: 0 },
   });
   const records = await prisma.englishRecord.findMany({
