@@ -206,15 +206,10 @@ export const FIXED_SCHEDULES: FixedSchedule[] = [
 ];
 
 export const ENGLISH_PRACTICE_TYPES = [
-<<<<<<< HEAD
-  { key: "miaomiao", label: "妙妙卷", maxScore: 80 },
-  { key: "pastPaper", label: "歷屆試題", maxScore: 80 },
-  { key: "cloze", label: "克漏字", maxScore: 28 },
-=======
   { key: "miaomiao", label: "妙妙卷", maxScore: 80, color: "#3563e9" },
+  { key: "pastPaper", label: "歷屆試題", maxScore: 80, color: "#9a4fc4" },
   { key: "cloze", label: "克漏字", maxScore: 28, color: "#20a16b" },
   { key: "haohao", label: "好好學", maxScore: 65, color: "#8b5cf6" },
->>>>>>> 00909cc5d3ecd392f940179074ef078eb5f9690a
 ] as const;
 
 export type EnglishPracticeType = (typeof ENGLISH_PRACTICE_TYPES)[number]["key"];
@@ -222,7 +217,8 @@ export type EnglishPracticeType = (typeof ENGLISH_PRACTICE_TYPES)[number]["key"]
 export const ENGLISH_TOTAL_MAX_SCORE = Math.max(...ENGLISH_PRACTICE_TYPES.map((type) => type.maxScore));
 
 export const ENGLISH_PRACTICE_NAME_HINTS: Record<EnglishPracticeType, string> = {
-  miaomiao: "妙幾",
+  miaomiao: "例：妙七",
+  pastPaper: "幾年份的...",
   cloze: "主題幾第幾回",
   haohao: "單元幾",
 };
