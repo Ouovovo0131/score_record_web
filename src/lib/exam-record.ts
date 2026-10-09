@@ -1,5 +1,5 @@
 import type { ExamRecord, Prisma } from "@prisma/client";
-import { BENCHMARKS, SCIENCE_DETAIL_SCORES, SUBJECTS, calculateSubjectScore, calculateTotalGrade } from "@/lib/data";
+import { BENCHMARKS, SCIENCE_DETAIL_SCORES, SUBJECTS, calculateSubjectScore, calculateTotalGrade, inferTrackSubjects } from "@/lib/data";
 
 const COMPONENT_KEYS = SUBJECTS.flatMap((subject) => subject.components.map(({ key }) => key));
 const BENCHMARK_KEYS = SUBJECTS.flatMap((subject) =>
@@ -37,7 +37,8 @@ export function validateExamRecordData(body: Record<string, unknown>): string | 
     return "分數不可小於 0。";
   }
   if (Number(values.englishScore) > 100) return "英文分數不可超過 100 分。";
-  if (Number(values.mathScore) > 100) return "數學分數不可超過 100 分。";
+  if (Number(values.mathScore) > 100) return "數A分數不可超過 100 分。";
+  if (Number(values.mathBScore) > 100) return "數B分數不可超過 100 分。";
   if (Number(values.scienceChoiceScore) > 72) return "自然選擇題不可超過 72 分。";
   if (Number(values.scienceMixedScore) > 56) return "自然混合題不可超過 56 分。";
   const scienceDetailsEntered = SCIENCE_DETAIL_SCORES.some(({ key }) => values[key] !== null);
@@ -86,7 +87,7 @@ export function buildExamRecordData(body: Record<string, unknown>): Prisma.ExamR
     examName: String(body.examName || "").trim(),
     examDate: new Date(String(body.examDate || "")),
     totalScore: 0,
-    totalGrade: calculateTotalGrade(values),
+    totalGrade: calculateTotalGrade(values, inferTrackSubjects(values)),
     ...values,
     reviewTags: Array.isArray(body.reviewTags) ? body.reviewTags : [],
     notes: String(body.notes || ""),
@@ -105,7 +106,7 @@ export function serializeExamRecord(record: ExamRecord) {
     ...publicRecord,
     ...values,
     ...Object.fromEntries(SUBJECTS.map(({ scoreKey }) => [scoreKey, values[scoreKey]])),
-    totalGrade: calculateTotalGrade(values) ?? record.totalGrade,
+    totalGrade: calculateTotalGrade(values, inferTrackSubjects(values)) ?? record.totalGrade,
     examDate: record.examDate.toISOString().slice(0, 10),
     reviewTags: Array.isArray(record.reviewTags) ? record.reviewTags : [],
   };

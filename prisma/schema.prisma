@@ -25,6 +25,8 @@ model ExamRecord {
   englishGrade  Float?
   mathScore     Float?
   mathGrade     Float?
+  mathBScore    Float?
+  mathBGrade    Float?
   socialScore   Float?
   socialGrade   Float?
   scienceScore  Float?
@@ -37,6 +39,8 @@ model ExamRecord {
   englishEssayScore Float?
   mathChoiceScore Float?
   mathMixedScore Float?
+  mathBChoiceScore Float?
+  mathBMixedScore Float?
   scienceChoiceScore Float?
   scienceMixedScore Float?
   socialHistoryScore Float?
@@ -65,6 +69,11 @@ model ExamRecord {
   mathAverageGrade Float?
   mathBackGrade Float?
   mathBottomGrade Float?
+  mathBTopGrade Float?
+  mathBFrontGrade Float?
+  mathBAverageGrade Float?
+  mathBBackGrade Float?
+  mathBBottomGrade Float?
   scienceTopGrade Float?
   scienceFrontGrade Float?
   scienceAverageGrade Float?
@@ -89,8 +98,8 @@ model ExamRecord {
   @@index([userEmail])
 }
 
-// A single English practice record (妙妙卷 / 克漏字). Category scores are
-// nullable because 克漏字 does not have vocabulary/reading/mixed categories.
+// A single English practice record (妙妙卷 / 克漏字 / 好好學). Category
+// scores are nullable because some categories are unavailable by practice type.
 model EnglishRecord {
   id               String   @id @default(cuid())
   userEmail        String
@@ -121,6 +130,7 @@ model Goal {
   targetChineseGrade    Float?
   targetEnglishGrade    Float?
   targetMathGrade       Float?
+  targetMathBGrade      Float?
   targetScienceGrade    Float?
   targetSocialGrade     Float?
   createdAt             DateTime @default(now())

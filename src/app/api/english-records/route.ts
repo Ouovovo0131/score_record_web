@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
+import { validateEnglishRecordInput } from "@/lib/data";
 
 function serialize(record: {
   id: string;
@@ -41,6 +42,8 @@ export async function POST(request: NextRequest) {
   const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json();
+  const validationError = validateEnglishRecordInput(body);
+  if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
   const record = await prisma.englishRecord.create({
     data: {

@@ -3,7 +3,7 @@
 // and default seed data used both by the seed script and the API/UI.
 
 export interface Subject {
-  key: "chinese" | "english" | "math" | "science" | "social";
+  key: "chinese" | "english" | "math" | "mathB" | "science" | "social";
   label: string;
   shortLabel: string;
   scoreKey: string;
@@ -38,13 +38,24 @@ export const SUBJECTS: Subject[] = [
   },
   {
     key: "math",
-    label: "數學",
-    shortLabel: "數",
+    label: "數A",
+    shortLabel: "數A",
     scoreKey: "mathScore",
     gradeKey: "mathGrade",
     components: [
       { key: "mathChoiceScore", label: "選擇題", maxScore: 85 },
       { key: "mathMixedScore", label: "混合題", maxScore: 15 },
+    ],
+  },
+  {
+    key: "mathB",
+    label: "數B",
+    shortLabel: "數B",
+    scoreKey: "mathBScore",
+    gradeKey: "mathBGrade",
+    components: [
+      { key: "mathBChoiceScore", label: "選擇題", maxScore: 85 },
+      { key: "mathBMixedScore", label: "混合題", maxScore: 15 },
     ],
   },
   {
@@ -72,14 +83,16 @@ export const SUBJECTS: Subject[] = [
   },
 ];
 
-export type Track = "science" | "social";
+export type Track = "science" | "social" | "all";
 
-export const TRACK_LABELS: Record<Track, string> = { science: "自然組", social: "社會組" };
+export const TRACK_LABELS: Record<Track, string> = { science: "自然組", social: "社會組", all: "全科" };
 
-// Each track shows Chinese/English/Math plus its own elective group.
+// Science: Chinese/English/Math A + Science. Social: Chinese/English/Math A + Math B + Social.
+// All: every subject.
 export function subjectsForTrack(track: Track | null | undefined): Subject[] {
-  const hidden = track === "social" ? "science" : "social";
-  return SUBJECTS.filter((subject) => subject.key !== hidden);
+  if (track === "all") return SUBJECTS;
+  const hidden: Subject["key"][] = track === "social" ? ["science"] : ["social", "mathB"];
+  return SUBJECTS.filter((subject) => !hidden.includes(subject.key));
 }
 
 export const SCIENCE_DETAIL_MAX_SCORE = 32;
@@ -107,9 +120,25 @@ export function calculateSubjectScore(
   return values.reduce<number>((sum, value) => sum + (Number.isFinite(value) ? (value as number) : 0), 0);
 }
 
+// Social track: 數A and 數B are distinct subjects but only one counts toward the total (the higher grade).
+// Other views sum every given subject.
 export function calculateTotalGrade(record: Record<string, number | null | undefined>, subjects: Subject[] = SUBJECTS): number | null {
-  const grades = subjects.map(({ gradeKey }) => record[gradeKey]).filter(Number.isFinite) as number[];
+  const isSocial = subjects.some((s) => s.key === "social") && !subjects.some((s) => s.key === "science");
+  const mathKeys = isSocial ? subjects.filter((s) => s.key === "math" || s.key === "mathB") : [];
+  const grades = subjects
+    .filter((s) => !mathKeys.includes(s))
+    .map(({ gradeKey }) => record[gradeKey])
+    .filter(Number.isFinite) as number[];
+  const mathGrades = mathKeys.map(({ gradeKey }) => record[gradeKey]).filter(Number.isFinite) as number[];
+  if (mathGrades.length) grades.push(Math.max(...mathGrades));
   return grades.length ? grades.reduce((sum, grade) => sum + grade, 0) : null;
+}
+
+// The server does not receive the track, so infer it from which grades are filled in.
+export function inferTrackSubjects(record: Record<string, number | null | undefined>): Subject[] {
+  const has = (k: string) => Number.isFinite(record[k]);
+  if (has("scienceGrade")) return has("socialGrade") ? SUBJECTS : subjectsForTrack("science");
+  return has("socialGrade") || has("mathBGrade") ? subjectsForTrack("social") : subjectsForTrack("science");
 }
 
 export const BENCHMARKS = [
@@ -154,6 +183,7 @@ export const DEFAULT_GOALS = {
   targetChineseGrade: 12,
   targetEnglishGrade: 13,
   targetMathGrade: 15,
+  targetMathBGrade: null as number | null,
   targetSocialGrade: null as number | null,
   targetScienceGrade: 14,
 };
@@ -176,30 +206,85 @@ export const FIXED_SCHEDULES: FixedSchedule[] = [
 ];
 
 export const ENGLISH_PRACTICE_TYPES = [
+<<<<<<< HEAD
   { key: "miaomiao", label: "妙妙卷", maxScore: 80 },
   { key: "pastPaper", label: "歷屆試題", maxScore: 80 },
   { key: "cloze", label: "克漏字", maxScore: 28 },
+=======
+  { key: "miaomiao", label: "妙妙卷", maxScore: 80, color: "#3563e9" },
+  { key: "cloze", label: "克漏字", maxScore: 28, color: "#20a16b" },
+  { key: "haohao", label: "好好學", maxScore: 65, color: "#8b5cf6" },
+>>>>>>> 00909cc5d3ecd392f940179074ef078eb5f9690a
 ] as const;
 
 export type EnglishPracticeType = (typeof ENGLISH_PRACTICE_TYPES)[number]["key"];
 
-export const ENGLISH_TOTAL_MAX_SCORE = ENGLISH_PRACTICE_TYPES.find((type) => type.key === "miaomiao")!.maxScore;
+export const ENGLISH_TOTAL_MAX_SCORE = Math.max(...ENGLISH_PRACTICE_TYPES.map((type) => type.maxScore));
+
+export const ENGLISH_PRACTICE_NAME_HINTS: Record<EnglishPracticeType, string> = {
+  miaomiao: "妙幾",
+  cloze: "主題幾第幾回",
+  haohao: "單元幾",
+};
 
 export const ENGLISH_UNAVAILABLE_CATEGORY_MAP: Record<string, string[]> = {
   miaomiao: [],
   pastPaper: [],
   cloze: ["vocabularyScore", "readingScore", "mixedScore", "translationScore"],
+  haohao: ["vocabularyScore"],
 };
 
-export const ENGLISH_CATEGORIES = [
+export const ENGLISH_CATEGORIES: {
+  key: string;
+  label: string;
+  maxScore: number;
+  maxScoreByType?: Partial<Record<EnglishPracticeType, number>>;
+}[] = [
   { key: "vocabularyScore", label: "詞彙題", maxScore: 10 },
-  { key: "clozeScore", label: "綜合測驗", maxScore: 10 },
+  { key: "clozeScore", label: "綜合測驗", maxScore: 10, maxScoreByType: { haohao: 5 } },
   { key: "contextScore", label: "文意選填", maxScore: 10 },
   { key: "structureScore", label: "篇章結構", maxScore: 8 },
-  { key: "readingScore", label: "閱讀題", maxScore: 24 },
+  { key: "readingScore", label: "閱讀測驗", maxScore: 24, maxScoreByType: { haohao: 8 } },
   { key: "mixedScore", label: "混合題", maxScore: 10 },
-  { key: "translationScore", label: "翻譯題", maxScore: 8 },
-] as const;
+  { key: "translationScore", label: "翻譯", maxScore: 8, maxScoreByType: { haohao: 24 } },
+];
+
+export function getEnglishCategoryMaxScore(categoryKey: string, practiceType: string): number {
+  const category = ENGLISH_CATEGORIES.find((item) => item.key === categoryKey);
+  return category?.maxScoreByType?.[practiceType as EnglishPracticeType] ?? category?.maxScore ?? 0;
+}
+
+export function validateEnglishRecordInput(body: Record<string, unknown>): string | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return "Invalid record.";
+  const practiceType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === body.practiceType);
+  if (!practiceType) return "Invalid practice type.";
+  if (typeof body.practiceDate !== "string" || !Number.isFinite(Date.parse(body.practiceDate))) {
+    return "Invalid practice date.";
+  }
+  if (body.practiceName !== undefined && typeof body.practiceName !== "string") {
+    return "Invalid practice name.";
+  }
+
+  for (const category of ENGLISH_CATEGORIES) {
+    const value = body[category.key];
+    if (ENGLISH_UNAVAILABLE_CATEGORY_MAP[practiceType.key].includes(category.key)) {
+      if (value !== null && value !== undefined) return "Score category is unavailable for this practice type.";
+      continue;
+    }
+    if (value !== null && value !== undefined &&
+      (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > getEnglishCategoryMaxScore(category.key, practiceType.key))) {
+      return "Invalid category score.";
+    }
+  }
+
+  const totalScore = body.totalScore;
+  if (totalScore !== null && totalScore !== undefined &&
+    (typeof totalScore !== "number" || !Number.isFinite(totalScore) || totalScore < 0 || totalScore > practiceType.maxScore)) {
+    return "Invalid total score.";
+  }
+
+  return null;
+}
 
 export const DEFAULT_ENGLISH_RECORDS = [
   {

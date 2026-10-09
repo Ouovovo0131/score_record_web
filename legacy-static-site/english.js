@@ -1,9 +1,11 @@
 const {
   STORAGE_KEYS,
   ENGLISH_PRACTICE_TYPES,
+  ENGLISH_PRACTICE_NAME_HINTS,
   ENGLISH_UNAVAILABLE_CATEGORY_MAP,
   ENGLISH_CATEGORIES,
   DEFAULT_ENGLISH_RECORDS,
+  getEnglishCategoryMaxScore,
   readStoredValue: readAppStoredValue,
   writeStoredValue: writeAppStoredValue,
   average,
@@ -35,8 +37,7 @@ const englishStatNodes = {
   recordCount: document.querySelector("#english-record-count"),
   averageScore: document.querySelector("#english-average-score"),
   highestScore: document.querySelector("#english-highest-score"),
-  miaomiaoAverage: document.querySelector("#miaomiao-average-score"),
-  clozeAverage: document.querySelector("#cloze-average-score"),
+  practiceAverages: document.querySelectorAll("[data-practice-average]"),
 };
 
 const englishLatestNodes = {
@@ -89,6 +90,7 @@ async function handleAddEnglishRecord(event) {
     structureScore: toOptionalNumber(formData.get("structureScore")),
     readingScore: toOptionalNumber(formData.get("readingScore")),
     mixedScore: toOptionalNumber(formData.get("mixedScore")),
+    translationScore: toOptionalNumber(formData.get("translationScore")),
     totalScore: toOptionalNumber(formData.get("totalScore")),
     notes: String(formData.get("notes")).trim(),
   };
@@ -159,8 +161,9 @@ function renderEnglishStats() {
   englishStatNodes.recordCount.textContent = String(englishRecords.length);
   englishStatNodes.averageScore.textContent = totals.length ? formatDisplayScore(average(totals)) : "0";
   englishStatNodes.highestScore.textContent = totals.length ? formatDisplayScore(Math.max(...totals)) : "0";
-  englishStatNodes.miaomiaoAverage.textContent = formatTypeAverage("miaomiao");
-  englishStatNodes.clozeAverage.textContent = formatTypeAverage("cloze");
+  englishStatNodes.practiceAverages.forEach((node) => {
+    node.textContent = formatTypeAverage(node.dataset.practiceAverage);
+  });
 }
 
 function renderEnglishLatestInsight() {
@@ -271,7 +274,7 @@ function renderEnglishTrendChart() {
   const minValue = Math.min(...allValues);
   const maxValue = Math.max(...allValues);
   const range = Math.max(maxValue - minValue, 10);
-  const typeColors = { miaomiao: "#3563e9", cloze: "#20a16b" };
+  const typeColors = Object.fromEntries(ENGLISH_PRACTICE_TYPES.map((type) => [type.key, type.color]));
 
   appendSvgNode(englishTrendChart, "line", {
     x1: padding.left,
@@ -378,7 +381,7 @@ function renderEnglishCategoryChart() {
   const width = 520;
   const height = 320;
   const padding = { top: 24, right: 20, bottom: 80, left: 40 };
-  const colors = { miaomiao: "#3563e9", cloze: "#20a16b" };
+  const colors = Object.fromEntries(ENGLISH_PRACTICE_TYPES.map((type) => [type.key, type.color]));
   const barGroupWidth = (width - padding.left - padding.right) / ENGLISH_CATEGORIES.length;
 
   appendSvgNode(englishCategoryChart, "line", {
@@ -458,7 +461,7 @@ function renderEnglishTable() {
   englishRecordsBody.innerHTML = "";
 
   if (!englishRecords.length) {
-    englishRecordsBody.innerHTML = '<tr class="empty-row"><td colspan="12">目前還沒有英文練習紀錄。</td></tr>';
+    englishRecordsBody.innerHTML = '<tr class="empty-row"><td colspan="13">目前還沒有英文練習紀錄。</td></tr>';
     return;
   }
 
@@ -475,6 +478,7 @@ function renderEnglishTable() {
     row.querySelector('[data-field="structure"]').textContent = formatMaybeNumber(record.structureScore);
     row.querySelector('[data-field="reading"]').textContent = formatEnglishCategoryValue(record, "readingScore");
     row.querySelector('[data-field="mixed"]').textContent = formatEnglishCategoryValue(record, "mixedScore");
+    row.querySelector('[data-field="translation"]').textContent = formatEnglishCategoryValue(record, "translationScore");
     row.querySelector('[data-field="notes"]').textContent = record.notes || "—";
     row.querySelector(".table-delete-btn").addEventListener("click", () => handleDeleteEnglishRecord(record.id));
     fragment.appendChild(row);
@@ -545,6 +549,7 @@ function normalizeEnglishRecord(record) {
     structureScore: toOptionalNumber(record.structureScore),
     readingScore: toOptionalNumber(record.readingScore),
     mixedScore: toOptionalNumber(record.mixedScore),
+    translationScore: toOptionalNumber(record.translationScore),
     notes: typeof record.notes === "string" ? record.notes.trim() : "",
   };
 
@@ -636,7 +641,7 @@ function isUnavailableCategory(practiceType, categoryKey) {
 }
 
 function isMiaomiaoOnlyCategory(categoryKey) {
-  return isUnavailableCategory("cloze", categoryKey);
+  return isUnavailableCategory("cloze", categoryKey) && isUnavailableCategory("haohao", categoryKey);
 }
 
 function formatTypeAverage(typeKey) {
@@ -726,12 +731,15 @@ function getCategoryAverageValue(categoryKey, practiceType) {
 }
 
 function getCategoryAverageRate(categoryKey, practiceType) {
-  const category = ENGLISH_CATEGORIES.find((item) => item.key === categoryKey);
-  if (!category || !Number.isFinite(category.maxScore) || category.maxScore <= 0) {
-    return null;
-  }
-
-  const rates = getCategoryValues(categoryKey, practiceType).map((value) => (value / category.maxScore) * 100);
+  const rates = englishRecords
+    .filter((record) => !practiceType || record.practiceType === practiceType)
+    .filter((record) => !isUnavailableCategory(record.practiceType, categoryKey))
+    .map((record) => {
+      const value = record[categoryKey];
+      const maxScore = getEnglishCategoryMaxScore(categoryKey, record.practiceType);
+      return Number.isFinite(value) && maxScore > 0 ? (value / maxScore) * 100 : null;
+    })
+    .filter((value) => value !== null);
   return rates.length ? average(rates) : null;
 }
 
@@ -851,15 +859,21 @@ function formatEnglishCategoryValue(record, categoryKey) {
 }
 
 function syncEnglishCategoryInputs() {
+  const practiceType = englishForm.practiceType.value;
+  englishForm.elements.namedItem("practiceName").placeholder = ENGLISH_PRACTICE_NAME_HINTS[practiceType];
   ENGLISH_CATEGORIES.forEach((category) => {
     const input = englishForm.elements.namedItem(category.key);
     if (!input) {
       return;
     }
 
-    const unavailable = isUnavailableCategory(englishForm.practiceType.value, category.key);
+    const unavailable = isUnavailableCategory(practiceType, category.key);
+    const maxScore = getEnglishCategoryMaxScore(category.key, practiceType);
     input.disabled = unavailable;
     input.placeholder = unavailable ? "-" : "";
+    input.max = String(maxScore);
+    const card = input.closest(".subject-entry-card");
+    if (card) card.querySelector("h3").textContent = `${category.label}（滿分 ${maxScore}）`;
     if (unavailable) {
       input.value = "";
     }

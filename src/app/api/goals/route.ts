@@ -40,6 +40,7 @@ export async function PUT(request: NextRequest) {
     targetChineseGrade: body.targetChineseGrade ?? null,
     targetEnglishGrade: body.targetEnglishGrade ?? null,
     targetMathGrade: body.targetMathGrade ?? null,
+    targetMathBGrade: body.targetMathBGrade ?? null,
     targetScienceGrade: body.targetScienceGrade ?? null,
     targetSocialGrade: body.targetSocialGrade ?? null,
   };
