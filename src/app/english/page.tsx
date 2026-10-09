@@ -9,7 +9,6 @@ import { MultiTrendChart } from "@/components/TrendChart";
 import {
   average,
   formatScore,
-  predictNextValue,
   ENGLISH_CATEGORIES,
   ENGLISH_PRACTICE_TYPES,
   ENGLISH_PRACTICE_NAME_HINTS,
@@ -151,42 +150,20 @@ function EnglishPageContent() {
   }));
   const visibleTrendSeries =
     trendType === "all" ? trendSeries : trendSeries.filter((series) => series.key === trendType);
-  const visibleTrendCount = visibleTrendSeries.reduce((count, series) => count + series.points.length, 0);
-
-  // Each practice type grows at its own pace, so the next-score prediction is
-  // computed independently per type (linear regression over that type's own
-  // history) instead of regressing on a single mixed/combined series. The
-  // "all" view's predicted total is simply the sum of all per-type
-  // predictions.
-  const typePredictions = new Map(
-    trendSeries.map((series) => [series.key, predictNextValue(series.points.map((p) => p.value))])
-  );
   const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
   const trendYAxisMin = 0;
   const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
-  const trendReferenceLines =
-    trendType === "all"
-      ? trendSeries.flatMap((series) => {
-          const values = series.points.map((point) => point.value);
-          if (!values.length) return [];
-          const type = ENGLISH_PRACTICE_TYPES.find((item) => item.key === series.key)!;
-          return [{
-            value: Math.max(...values),
-            label: `${type.label}最高 ${formatScore(Math.max(...values))}`,
-            color: series.color,
-          }];
-        })
-      : [];
-  const trendPredictions = (trendType === "all" ? ENGLISH_PRACTICE_TYPES : ENGLISH_PRACTICE_TYPES.filter((type) => type.key === trendType))
-    .flatMap((type) => {
-      const prediction = typePredictions.get(type.key);
-      if (!prediction) return [];
-      return [{
-        value: prediction.value,
-        label: `${type.label} ${formatScore(prediction.value)}${prediction.isApproximate ? "（近似）" : ""}`,
-        color: type.color,
-      }];
-    });
+  const trendReferenceLines = visibleTrendSeries.flatMap((series) => {
+    const values = series.points.map((point) => point.value);
+    if (!values.length) return [];
+    const type = ENGLISH_PRACTICE_TYPES.find((item) => item.key === series.key)!;
+    const bestScore = Math.max(...values);
+    return [{
+      value: bestScore,
+      label: `${type.label}最高 ${formatScore(bestScore)}`,
+      color: series.color,
+    }];
+  });
 
   async function handleAddRecord(formEl: HTMLFormElement) {
     const formData = new FormData(formEl);
@@ -428,9 +405,8 @@ function EnglishPageContent() {
         </div>
         <p className="mt-1 text-muted">
           {trendType === "all"
-            ? `${ENGLISH_PRACTICE_TYPES.map((type) => type.label).join("、")}分開繪製，Y 軸固定為 0–${ENGLISH_TOTAL_MAX_SCORE} 分，並分別顯示目前最高分與下次預測。`
-            : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分。`}
-          {visibleTrendCount === 1 ? " 資料筆數不足以回歸，預測將以最近一次成績作為近似值。" : ""}
+            ? `${ENGLISH_PRACTICE_TYPES.map((type) => type.label).join("、")}分開繪製，Y 軸固定為 0–${ENGLISH_TOTAL_MAX_SCORE} 分，並以虛線標示各類型最高成績。`
+            : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分，並以虛線標示最高成績。`}
         </p>
         <div className="mt-4">
           <MultiTrendChart
@@ -439,8 +415,6 @@ function EnglishPageContent() {
             yAxisMin={trendYAxisMin}
             yAxisMax={trendYAxisMax}
             referenceLines={trendReferenceLines}
-            predictions={trendPredictions}
-            showExtrema={trendType !== "all"}
           />
         </div>
       </section>

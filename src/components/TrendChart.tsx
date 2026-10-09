@@ -89,14 +89,6 @@ export interface MultiSeries {
   points: TrendPoint[];
 }
 
-export interface PredictionLabel {
-  /** The predicted next score to plot on the right edge of the chart. */
-  value: number;
-  /** Full label text shown next to the prediction marker. */
-  label: string;
-  color?: string;
-}
-
 export interface ReferenceLine {
   value: number;
   label: string;
@@ -109,8 +101,6 @@ export function MultiTrendChart({
   yAxisMin,
   yAxisMax,
   referenceLines = [],
-  predictions = [],
-  showExtrema = true,
 }: {
   series: MultiSeries[];
   emptyMessage?: string;
@@ -120,10 +110,6 @@ export function MultiTrendChart({
   yAxisMax?: number;
   /** Reference lines used to compare the current best score for each practice type. */
   referenceLines?: ReferenceLine[];
-  /** Independently computed next-score predictions. */
-  predictions?: PredictionLabel[];
-  /** Whether to show the chart's observed high and low lines. */
-  showExtrema?: boolean;
 }) {
   const allValues = series.flatMap((s) => s.points.map((p) => p.value));
   if (!allValues.length) {
@@ -151,7 +137,7 @@ export function MultiTrendChart({
     );
   const pointIndices = new Map(timeline.map(({ point }, index) => [point, index]));
   const axisMin = yAxisMin ?? minValue;
-  const axisMax = yAxisMax ?? Math.max(maxValue, ...predictions.map(({ value }) => value));
+  const axisMax = yAxisMax ?? maxValue;
   const range = Math.max(axisMax - axisMin, 10);
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
@@ -160,17 +146,12 @@ export function MultiTrendChart({
   const yFor = (value: number) => padding.top + innerHeight - ((value - axisMin) / range) * innerHeight;
   const xFor = (point: TrendPoint) => {
     const index = pointIndices.get(point) ?? 0;
-    const position =
-      predictions.length > 0
-        ? index / timeline.length
-        : timeline.length === 1
-          ? 0.5
-          : index / (timeline.length - 1);
+    const position = timeline.length === 1 ? 0.5 : index / (timeline.length - 1);
     return padding.left + innerWidth * position;
   };
   return (
     <div className="mobile-chart min-h-[320px] border border-line bg-white">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="英文練習成長曲線與各類型下次預測" className="block h-[320px] w-full">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="英文練習總分成長曲線與各類型最高成績" className="block h-[320px] w-full">
         <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
         {gridSteps.map((step) => {
@@ -185,48 +166,6 @@ export function MultiTrendChart({
             </g>
           );
         })}
-        {showExtrema && (
-          <>
-            <line
-              x1={padding.left}
-              y1={yFor(maxValue)}
-              x2={width - padding.right}
-              y2={yFor(maxValue)}
-              stroke="#db7048"
-              strokeWidth={1.5}
-              strokeDasharray="8 5"
-            />
-            <text
-              x={width - padding.right - 5}
-              y={yFor(maxValue) - 8}
-              fill="#a74324"
-              fontSize={12}
-              fontWeight={700}
-              textAnchor="end"
-            >
-              最高 {formatScore(maxValue)}
-            </text>
-            <line
-              x1={padding.left}
-              y1={yFor(minValue)}
-              x2={width - padding.right}
-              y2={yFor(minValue)}
-              stroke="#8065b5"
-              strokeWidth={1.5}
-              strokeDasharray="8 5"
-            />
-            <text
-              x={padding.left + 5}
-              y={yFor(minValue) + 16}
-              fill="#60458f"
-              fontSize={12}
-              fontWeight={700}
-              textAnchor="start"
-            >
-              最低 {formatScore(minValue)}
-            </text>
-          </>
-        )}
         {referenceLines.map((line, index) => (
           <g key={`${line.label}-${line.value}`}>
             <line
@@ -277,37 +216,6 @@ export function MultiTrendChart({
                   )}
                 </g>
               ))}
-            </g>
-          );
-        })}
-        {predictions.map((prediction, index) => {
-          const predictionX = padding.left + innerWidth;
-          const x = predictionX - 8 + index * 16;
-          const boundedValue = Math.min(Math.max(prediction.value, axisMin), axisMax);
-          const y = yFor(boundedValue);
-          const labelY = y < height - padding.bottom - 28 ? y + 22 : y - 12;
-          const color = prediction.color ?? "#d08016";
-          return (
-            <g key={prediction.label}>
-              <path
-                d={`M ${x} ${y - 7} L ${x + 7} ${y} L ${x} ${y + 7} L ${x - 7} ${y} Z`}
-                fill="#ffffff"
-                stroke={color}
-                strokeWidth={3}
-              />
-              <text
-                x={x - 10}
-                y={labelY}
-                fill={color}
-                fontSize={12}
-                fontWeight={700}
-                textAnchor="end"
-              >
-                {prediction.label}
-              </text>
-              <text x={x} y={height - padding.bottom + 22} fill="#5d6880" fontSize={12} textAnchor="middle">
-                下次
-              </text>
             </g>
           );
         })}
