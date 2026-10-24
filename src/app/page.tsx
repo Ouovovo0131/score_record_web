@@ -75,7 +75,7 @@ interface StudyTask {
   done: boolean;
 }
 
-const SUBJECT_COLORS: Record<string, string> = { chinese: "#dc2626", english: "#16a34a", math: "#2563eb", mathB: "#0891b2", science: "#9333ea", social: "#ea580c" };
+const SUBJECT_COLORS: Record<string, string> = { chinese: "#747fa2", english: "#657e91", math: "#5b62a8", mathB: "#718c94", science: "#7b7896", social: "#8c806f" };
 
 const TASK_SUBJECTS = [
   ...SUBJECTS.map((s) => ({ key: s.key as string, label: s.label, color: SUBJECT_COLORS[s.key] })),
@@ -220,13 +220,13 @@ function HeroCountdown({
       : formatScheduleRange(schedule);
 
   return (
-    <section className={`mobile-panel overflow-hidden border border-line bg-ink text-white ${className ?? ""}`}>
+    <section className={`mobile-panel countdown-hero overflow-hidden border border-line ${className ?? ""}`}>
       <div className="p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="bg-white/20 px-2.5 py-1 text-sm font-bold">{badge}</span>
+          <span className="countdown-badge px-2.5 py-1 text-sm font-bold">{badge}</span>
           <h2 className="text-2xl font-extrabold sm:text-3xl">{schedule.name}</h2>
         </div>
-        <p className="mt-2 text-white/85">{subtitle}</p>
+        <p className="mt-2">{subtitle}</p>
 
         <div className="mobile-countdown-grid mt-5 grid grid-cols-4 gap-3">
           {[
@@ -235,7 +235,7 @@ function HeroCountdown({
             { value: units.minutes, label: "分" },
             { value: units.seconds, label: "秒" },
           ].map((unit) => (
-            <div key={unit.label} className="mobile-countdown-unit bg-white/15 p-3 text-center">
+            <div key={unit.label} className="mobile-countdown-unit p-3 text-center">
               <strong className="num-display block text-3xl sm:text-5xl">{unit.value}</strong>
               <span>{unit.label}</span>
             </div>
@@ -243,12 +243,12 @@ function HeroCountdown({
         </div>
 
         <div className="mt-5">
-          <div className="flex justify-between text-sm text-white/80">
+          <div className="countdown-progress-label flex justify-between text-sm">
             <span>{state.phase === "active" ? "考試進度" : completed ? "已完成" : prev ? `自${prev.name}後` : "備考進度"}</span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="mt-1.5 h-2 bg-white/20">
-            <div className="h-full bg-white" style={{ width: `${progress}%` }} />
+          <div className="countdown-progress-track mt-1.5 h-2 rounded-full">
+            <div className="h-full rounded-full" style={{ width: `${progress}%` }} />
           </div>
         </div>
       </div>

@@ -59,8 +59,8 @@ function ScoreRatioBars({
                     {known ? `${formatScore(item.value as number)} / ${item.max}（${formatScore(pct)}%）` : `— / ${item.max}`}
                   </span>
                 </div>
-                <div className="mt-1 h-2.5 bg-[#e8eefb]">
-                  <div className="h-full bg-[#3563e9]" style={{ width: `${pct}%` }} />
+                <div className="mt-1 h-2.5 bg-[#eef0f5]">
+                  <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
                 </div>
               </li>
             );
@@ -627,7 +627,7 @@ function ScorePageContent() {
               <article key={subject.key} className="border border-line bg-[#f9fafb] p-3.5">
                 <h3 className="font-bold">{subject.label}成長趨勢</h3>
                 <div className="mt-2">
-                  <TrendChart points={points} color="#3563e9" emptyMessage={`尚無${subject.label}分數資料。`} />
+                  <TrendChart points={points} color="#5b62a8" emptyMessage={`尚無${subject.label}分數資料。`} />
                 </div>
                 <div className="mt-3">
                   <ScoreRatioBars
@@ -655,7 +655,7 @@ function ScorePageContent() {
         <div className="mt-5 border-t pt-4">
           <h3 className="font-bold">總級分長期趨勢</h3>
           <div className="mt-2">
-            <TrendChart points={trendPoints} color="#20a16b" />
+            <TrendChart points={trendPoints} color="#638b7c" />
           </div>
         </div>
       </section>

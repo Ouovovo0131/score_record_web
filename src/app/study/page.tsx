@@ -197,7 +197,7 @@ function StudyPageContent() {
                         aria-label={`${key}${studied ? " 已讀書" : " 未讀書"}`}
                         aria-pressed={studied}
                         style={{ width: CELL, height: CELL, minWidth: CELL, minHeight: CELL }}
-                        className={`${key === RANGE_END_KEY ? "bg-[#facc15]" : studied ? "bg-[#2563eb]" : future ? "bg-[#f3f4f6] hover:bg-[#cbd5e1]" : "bg-[#e5e7eb] hover:bg-[#cbd5e1]"} ${key === todayKey ? "outline outline-2 outline-ink" : ""} ${key === selected ? "ring-2 ring-primary ring-offset-1" : ""} disabled:cursor-wait`}
+                        className={`${key === RANGE_END_KEY ? "bg-[#dfe1f2]" : studied ? "bg-primary" : future ? "bg-[#f7f8fa] hover:bg-[#e3e6ec]" : "bg-[#eceef2] hover:bg-[#e3e6ec]"} ${key === todayKey ? "outline outline-2 outline-ink" : ""} ${key === selected ? "ring-2 ring-primary ring-offset-1" : ""} disabled:cursor-wait`}
                       />
                     );
                   })}
@@ -212,13 +212,13 @@ function StudyPageContent() {
             <i className="inline-block h-3.5 w-3.5 bg-[#e5e7eb]" /> 沒讀書
           </span>
           <span className="flex items-center gap-1.5">
-            <i className="inline-block h-3.5 w-3.5 bg-[#2563eb]" /> 有讀書
+            <i className="inline-block h-3.5 w-3.5 bg-primary" /> 有讀書
           </span>
           <span className="flex items-center gap-1.5">
             <i className="inline-block h-3.5 w-3.5 outline outline-2 outline-ink" /> 今天
           </span>
           <span className="flex items-center gap-1.5">
-            <i className="inline-block h-3.5 w-3.5 bg-[#facc15]" /> 學測
+            <i className="inline-block h-3.5 w-3.5 bg-[#dfe1f2]" /> 學測
           </span>
         </div>
 

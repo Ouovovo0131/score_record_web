@@ -206,10 +206,10 @@ export const FIXED_SCHEDULES: FixedSchedule[] = [
 ];
 
 export const ENGLISH_PRACTICE_TYPES = [
-  { key: "miaomiao", label: "妙妙卷", maxScore: 80, color: "#3563e9" },
-  { key: "pastPaper", label: "歷屆試題", maxScore: 80, color: "#9a4fc4" },
-  { key: "cloze", label: "克漏字", maxScore: 28, color: "#20a16b" },
-  { key: "haohao", label: "好好學", maxScore: 65, color: "#8b5cf6" },
+  { key: "miaomiao", label: "妙妙卷", maxScore: 80, color: "#5b62a8" },
+  { key: "pastPaper", label: "歷屆試題", maxScore: 80, color: "#7886a4" },
+  { key: "cloze", label: "克漏字", maxScore: 28, color: "#638b7c" },
+  { key: "haohao", label: "好好學", maxScore: 65, color: "#9b806c" },
 ] as const;
 
 export type EnglishPracticeType = (typeof ENGLISH_PRACTICE_TYPES)[number]["key"];

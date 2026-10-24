@@ -9,7 +9,7 @@ export interface TrendPoint {
 
 export function TrendChart({
   points,
-  color = "#3563e9",
+  color = "#5b62a8",
   emptyMessage = "至少新增 1 筆有效資料後才會顯示圖表。",
 }: {
   points: TrendPoint[];
@@ -45,15 +45,15 @@ export function TrendChart({
   return (
     <div className="mobile-chart min-h-[320px] border border-line bg-white">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="成長曲線" className="block h-[320px] w-full">
-        <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
-        <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
+        <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#cbd0da" strokeWidth={1} />
+        <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#cbd0da" strokeWidth={1} />
         {gridSteps.map((step) => {
           const y = padding.top + innerHeight - (innerHeight * step) / 4;
           const value = minValue + (range * step) / 4;
           return (
             <g key={step}>
-              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#e5edfd" strokeWidth={1} strokeDasharray="4 6" />
-              <text x={padding.left - 10} y={y + 5} fill="#5d6880" fontSize={12} textAnchor="end">
+              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#e7e9ee" strokeWidth={1} />
+              <text x={padding.left - 10} y={y + 5} fill="#707887" fontSize={12} textAnchor="end">
                 {formatScore(value)}
               </text>
             </g>
@@ -70,10 +70,10 @@ export function TrendChart({
         {plotted.map((p, index) => (
           <g key={index}>
             <circle cx={p.x} cy={p.y} r={5.5} fill="#ffffff" stroke={color} strokeWidth={3} />
-            <text x={p.x} y={p.y - 12} fill="#2648ac" fontSize={12} fontWeight={700} textAnchor="middle">
+            <text x={p.x} y={p.y - 12} fill="#4d5496" fontSize={12} fontWeight={700} textAnchor="middle">
               {formatScore(p.point.value)}
             </text>
-            <text x={p.x} y={height - padding.bottom + 22} fill="#5d6880" fontSize={12} textAnchor="middle">
+            <text x={p.x} y={height - padding.bottom + 22} fill="#707887" fontSize={12} textAnchor="middle">
               {compactDate(p.point.date)}
             </text>
           </g>
@@ -152,15 +152,15 @@ export function MultiTrendChart({
   return (
     <div className="mobile-chart min-h-[320px] border border-line bg-white">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="英文練習總分成長曲線與各類型最高成績" className="block h-[320px] w-full">
-        <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
-        <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#c4d5f8" strokeWidth={1.5} />
+        <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#cbd0da" strokeWidth={1} />
+        <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#cbd0da" strokeWidth={1} />
         {gridSteps.map((step) => {
           const y = padding.top + innerHeight - (innerHeight * step) / 4;
           const value = axisMin + (range * step) / 4;
           return (
             <g key={step}>
-              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#e5edfd" strokeWidth={1} strokeDasharray="4 6" />
-              <text x={padding.left - 10} y={y + 5} fill="#5d6880" fontSize={12} textAnchor="end">
+              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#e7e9ee" strokeWidth={1} />
+              <text x={padding.left - 10} y={y + 5} fill="#707887" fontSize={12} textAnchor="end">
                 {formatScore(value)}
               </text>
             </g>
@@ -210,7 +210,7 @@ export function MultiTrendChart({
                 <g key={index}>
                   <circle cx={p.x} cy={p.y} r={5.5} fill="#ffffff" stroke={s.color} strokeWidth={3} />
                   {(pointIndices.get(p.point) ?? 0) % dateLabelInterval === 0 && (
-                    <text x={p.x} y={height - padding.bottom + 22} fill="#5d6880" fontSize={12} textAnchor="middle">
+                    <text x={p.x} y={height - padding.bottom + 22} fill="#707887" fontSize={12} textAnchor="middle">
                       {compactDate(p.point.date)}
                     </text>
                   )}
