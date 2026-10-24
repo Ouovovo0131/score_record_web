@@ -16,6 +16,7 @@ export function TrendChart({
   yAxisMax,
   referenceLine,
   size = "default",
+  valueSuffix = "",
 }: {
   points: TrendPoint[];
   color?: string;
@@ -24,6 +25,7 @@ export function TrendChart({
   yAxisMax?: number;
   referenceLine?: { value: number; label: string };
   size?: "default" | "large";
+  valueSuffix?: string;
 }) {
   if (!points.length) {
     return (
@@ -65,7 +67,7 @@ export function TrendChart({
             <g key={step}>
               <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#e7e9ee" strokeWidth={1} />
               <text x={padding.left - 10} y={y + 5} fill="#707887" fontSize={size === "large" ? 13 : 12} textAnchor="end">
-                {formatScore(value)}
+                {formatScore(value)}{valueSuffix}
               </text>
             </g>
           );
@@ -104,13 +106,13 @@ export function TrendChart({
               stroke={color}
               strokeWidth={3}
               tabIndex={0}
-              aria-label={`${p.point.name ? `${p.point.name}，` : ""}${p.point.date}，${formatScore(p.point.value)} 分`}
+              aria-label={`${p.point.name ? `${p.point.name}，` : ""}${p.point.date}，${formatScore(p.point.value)}${valueSuffix || " 分"}`}
             >
-              <title>{`${p.point.name ? `${p.point.name} · ` : ""}${p.point.date} · ${formatScore(p.point.value)} 分`}</title>
+              <title>{`${p.point.name ? `${p.point.name} · ` : ""}${p.point.date} · ${formatScore(p.point.value)}${valueSuffix || " 分"}`}</title>
             </circle>
             {points.length <= 8 && (
               <text x={p.x} y={p.y - 13} fill="#4d5496" fontSize={13} fontWeight={700} textAnchor="middle">
-                {formatScore(p.point.value)}
+                {formatScore(p.point.value)}{valueSuffix}
               </text>
             )}
             {(index % dateLabelInterval === 0 || index === points.length - 1) && (

@@ -1,27 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { authFetch } from "@/lib/auth-fetch";
 import { useAuth } from "@/context/AuthContext";
-import { InsightCard, Tag } from "@/components/InsightCard";
-import { MultiTrendChart } from "@/components/TrendChart";
+import { TrendChart } from "@/components/TrendChart";
 import {
-  average,
   formatScore,
   ENGLISH_CATEGORIES,
   ENGLISH_PRACTICE_TYPES,
   ENGLISH_PRACTICE_NAME_HINTS,
-  ENGLISH_TOTAL_MAX_SCORE,
   ENGLISH_UNAVAILABLE_CATEGORY_MAP,
   getEnglishCategoryMaxScore,
 } from "@/lib/data";
 import type { EnglishPracticeType } from "@/lib/data";
 import type { EnglishRecordDTO } from "@/lib/types";
-
-function getFiniteValues(values: (number | null | undefined)[]): number[] {
-  return values.filter((v): v is number => Number.isFinite(v));
-}
 
 function formatMaybeNumber(value: number | null | undefined): string {
   return Number.isFinite(value) ? formatScore(value as number) : "—";
@@ -35,6 +28,26 @@ function getPracticeTypeLabel(typeKey: string): string {
   return ENGLISH_PRACTICE_TYPES.find((t) => t.key === typeKey)?.label || typeKey;
 }
 
+function SummaryMetric({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone?: "positive" | "negative" | "neutral";
+}) {
+  return (
+    <div className="score-summary-item">
+      <span>{label}</span>
+      <strong className={`num-display score-${tone}`}>{value}</strong>
+      <small>{detail}</small>
+    </div>
+  );
+}
+
 function EnglishPageContent() {
   const { user } = useAuth();
   const [records, setRecords] = useState<EnglishRecordDTO[]>([]);
@@ -42,6 +55,7 @@ function EnglishPageContent() {
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [practiceTypeInput, setPracticeTypeInput] = useState<string>("miaomiao");
+  const [trendWindow, setTrendWindow] = useState<"all" | "30d" | "7d">("all");
   const [trendType, setTrendType] = useState<"all" | EnglishPracticeType>("all");
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [editingPracticeTypes, setEditingPracticeTypes] = useState<Record<string, string>>({});
@@ -59,111 +73,63 @@ function EnglishPageContent() {
     setRecords(data);
   }
 
-  const totals = getFiniteValues(records.map((r) => r.totalScore));
-  const latest = records.at(-1) || null;
+  const todayKey = new Date().toLocaleDateString("sv-SE");
+  const shiftDate = (dateKey: string, days: number) => {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Date(year, month - 1, day + days).toLocaleDateString("sv-SE");
+  };
+  const validTotalRecords = records.filter((record) =>
+    ENGLISH_PRACTICE_TYPES.some((type) => type.key === record.practiceType) && Number.isFinite(record.totalScore)
+  );
+  const maximumScore = (record: EnglishRecordDTO) =>
+    ENGLISH_PRACTICE_TYPES.find((type) => type.key === record.practiceType)?.maxScore ?? 0;
+  const scoreRate = (items: EnglishRecordDTO[]) => {
+    const possible = items.reduce((sum, record) => sum + maximumScore(record), 0);
+    return possible > 0
+      ? (items.reduce((sum, record) => sum + (record.totalScore as number), 0) / possible) * 100
+      : null;
+  };
+  const overallRate = scoreRate(validTotalRecords);
+  const recentStart = shiftDate(todayKey, -29);
+  const previousStart = shiftDate(todayKey, -59);
+  const recentRecords = validTotalRecords.filter((record) => record.practiceDate >= recentStart && record.practiceDate <= todayKey);
+  const previousRecords = validTotalRecords.filter((record) => record.practiceDate >= previousStart && record.practiceDate < recentStart);
+  const recentRate = scoreRate(recentRecords);
+  const previousRate = scoreRate(previousRecords);
+  const recentRateChange = recentRate !== null && previousRate !== null ? recentRate - previousRate : null;
 
-  function getCategoryValues(categoryKey: string, practiceType?: string): number[] {
-    return getFiniteValues(
-      records
-        .filter((r) => !practiceType || r.practiceType === practiceType)
-        .filter((r) => !isUnavailableCategory(r.practiceType, categoryKey))
-        .map((r) => r[categoryKey as keyof EnglishRecordDTO] as number | null)
+  const categoryStats = ENGLISH_CATEGORIES.map((category) => {
+    const entries = records.filter((record) =>
+      !isUnavailableCategory(record.practiceType, category.key) &&
+      Number.isFinite(record[category.key as keyof EnglishRecordDTO] as number | null)
     );
-  }
-
-  function formatTypeAverage(typeKey: string): string {
-    const values = getFiniteValues(records.filter((r) => r.practiceType === typeKey).map((r) => r.totalScore));
-    return values.length ? formatScore(average(values)) : "0";
-  }
-
-  function getCategoryAverageRate(categoryKey: string, practiceType?: string): number | null {
-    const rates = records
-      .filter((record) => !practiceType || record.practiceType === practiceType)
-      .filter((record) => !isUnavailableCategory(record.practiceType, categoryKey))
-      .map((record) => {
-        const score = record[categoryKey as keyof EnglishRecordDTO] as number | null;
-        const maxScore = getEnglishCategoryMaxScore(categoryKey, record.practiceType);
-        return Number.isFinite(score) && maxScore > 0 ? ((score as number) / maxScore) * 100 : null;
-      })
-      .filter((value): value is number => value !== null);
-    return rates.length ? average(rates) : null;
-  }
-
-  const categoryTrendSummaries = useMemo(() => {
-    return ENGLISH_CATEGORIES.map((category) => {
-      if (!latest) {
-        return { key: category.key, label: category.label, value: "—", detail: "尚無資料", icon: "•", tone: "neutral" as const, tail: "還沒有可比較的題型資料" };
-      }
-      if (isUnavailableCategory(latest.practiceType, category.key)) {
-        return { key: category.key, label: category.label, value: "-", detail: "不適用此題型", icon: "-", tone: "neutral" as const, tail: "此練習類型不適用" };
-      }
-      const values = getCategoryValues(category.key);
-      if (!values.length) {
-        return { key: category.key, label: category.label, value: "—", detail: "尚無長期趨勢", icon: "•", tone: "neutral" as const, tail: "目前沒有足夠資料" };
-      }
-      const latestValue = latest[category.key as keyof EnglishRecordDTO] as number | null;
-      if (!Number.isFinite(latestValue)) {
-        return { key: category.key, label: category.label, value: "-", detail: "尚無最新分數", icon: "•", tone: "neutral" as const, tail: "最新一次沒有此題型資料" };
-      }
-      const firstValue = values[0];
-      const averageValue = average(values);
-      const direction = (latestValue as number) > firstValue ? "上升" : (latestValue as number) < firstValue ? "下降" : "持平";
-      const diffFromAverage = (latestValue as number) - averageValue;
-      return {
-        key: category.key,
-        label: category.label,
-        value: formatMaybeNumber(latestValue),
-        detail: `長期趨勢：${direction}`,
-        icon: diffFromAverage > 0 ? "▲" : diffFromAverage < 0 ? "▼" : "•",
-        tone: diffFromAverage > 0 ? ("positive" as const) : diffFromAverage < 0 ? ("negative" as const) : ("neutral" as const),
-        tail:
-          diffFromAverage > 0
-            ? `最新較長期平均高 ${formatScore(diffFromAverage)} 分`
-            : diffFromAverage < 0
-              ? `最新較長期平均低 ${formatScore(Math.abs(diffFromAverage))} 分`
-              : "最新與長期平均持平",
-      };
-    });
-    // getCategoryValues is intentionally omitted: it's a plain closure over
-    // `records` recreated each render, and including it would defeat memoization.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [records, latest]);
-
-  const findings = useMemo(() => {
-    const averages = ENGLISH_CATEGORIES.map((category) => ({
-      label: category.label,
-      value: getCategoryAverageRate(category.key),
-    })).filter((item) => Number.isFinite(item.value)) as { label: string; value: number }[];
-
-    if (!averages.length) return null;
-    averages.sort((a, b) => b.value - a.value);
-    return { strongest: averages[0], weakest: averages.at(-1)! };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [records]);
-
-  const trendSeries = ENGLISH_PRACTICE_TYPES.map((type) => ({
-    key: type.key,
-    color: type.color,
-    points: records
-      .filter((r) => r.practiceType === type.key && Number.isFinite(r.totalScore))
-      .map((r) => ({ date: r.practiceDate, value: r.totalScore as number })),
-  }));
-  const visibleTrendSeries =
-    trendType === "all" ? trendSeries : trendSeries.filter((series) => series.key === trendType);
-  const selectedType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === trendType);
-  const trendYAxisMin = 0;
-  const trendYAxisMax = selectedType ? selectedType.maxScore : ENGLISH_TOTAL_MAX_SCORE;
-  const trendReferenceLines = visibleTrendSeries.flatMap((series) => {
-    const values = series.points.map((point) => point.value);
-    if (!values.length) return [];
-    const type = ENGLISH_PRACTICE_TYPES.find((item) => item.key === series.key)!;
-    const bestScore = Math.max(...values);
-    return [{
-      value: bestScore,
-      label: `${type.label}最高 ${formatScore(bestScore)}`,
-      color: series.color,
-    }];
+    const possible = entries.reduce(
+      (sum, record) => sum + getEnglishCategoryMaxScore(category.key, record.practiceType),
+      0
+    );
+    const earned = entries.reduce(
+      (sum, record) => sum + (record[category.key as keyof EnglishRecordDTO] as number),
+      0
+    );
+    return { key: category.key, label: category.label, count: entries.length, rate: possible ? (earned / possible) * 100 : null };
   });
+  const focusCategory = categoryStats
+    .filter((category) => category.count >= 3 && category.rate !== null)
+    .sort((a, b) => (a.rate as number) - (b.rate as number))[0] ?? null;
+
+  const cutoffDate = trendWindow === "7d" ? shiftDate(todayKey, -6) : trendWindow === "30d" ? recentStart : null;
+  const filteredRecords = validTotalRecords.filter(
+    (record) =>
+      (!cutoffDate || record.practiceDate >= cutoffDate) &&
+      (trendType === "all" || record.practiceType === trendType)
+  );
+  const dailyTrend = [...new Set(filteredRecords.map((record) => record.practiceDate))]
+    .sort()
+    .map((date) => {
+      const dayRecords = filteredRecords.filter((record) => record.practiceDate === date);
+      const rate = scoreRate(dayRecords) ?? 0;
+      return { date, value: rate, name: `${dayRecords.length} 次練習` };
+    });
 
   async function handleAddRecord(formEl: HTMLFormElement) {
     const formData = new FormData(formEl);
@@ -275,11 +241,8 @@ function EnglishPageContent() {
     <div className="mobile-page">
       <div className="mobile-page-header mb-6 flex flex-wrap items-start justify-between gap-4 border-b-4 border-ink bg-white py-5">
         <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">English Practice Dashboard</p>
-          <h1 className="text-4xl font-extrabold sm:text-5xl">英文練習統計</h1>
-          <p className="mt-2 max-w-2xl text-muted">
-            分開追蹤妙妙卷、歷屆試題、克漏字與好好學練習，並把各題型分數拆開分析。
-          </p>
+          <h1 className="text-4xl font-extrabold sm:text-5xl">英文練習分析</h1>
+          <p className="mt-2 max-w-2xl text-muted">整理練習表現與題型得分，找出下一步可加強的方向。</p>
         </div>
         <button
           type="button"
@@ -300,154 +263,124 @@ function EnglishPageContent() {
         </div>
       )}
 
-      <div className="mobile-stat-grid grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="總筆數" value={String(records.length)} caption="所有英文練習紀錄" />
-        <StatCard label="平均總分" value={totals.length ? formatScore(average(totals)) : "0"} caption="全體練習平均" />
-        <StatCard label="最佳總分" value={totals.length ? formatScore(Math.max(...totals)) : "0"} caption="目前最佳表現" />
-        {ENGLISH_PRACTICE_TYPES.map((type) => (
-          <StatCard key={type.key} label={`${type.label}平均`} value={formatTypeAverage(type.key)} caption={`${type.label}練習平均`} />
-        ))}
-      </div>
+      <section className="english-summary" aria-label="英文練習摘要">
+        <SummaryMetric label="練習次數" value={String(records.length)} detail="已儲存的練習紀錄，不代表作答題數" />
+        <SummaryMetric label="累積得分率" value={overallRate === null ? "—" : `${formatScore(overallRate)}%`} detail={`依 ${validTotalRecords.length} 筆有總分紀錄計算`} />
+        <SummaryMetric
+          label="近 30 天"
+          value={String(recentRecords.length)}
+          detail={
+            recentRate === null
+              ? "此期間尚無有效總分紀錄"
+              : `得分率 ${formatScore(recentRate)}%${recentRateChange === null ? "" : ` · 較前 30 天 ${recentRateChange > 0 ? "+" : ""}${formatScore(recentRateChange)} 個百分點`}`
+          }
+          tone={recentRateChange === null || recentRateChange === 0 ? "neutral" : recentRateChange > 0 ? "positive" : "negative"}
+        />
+      </section>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <section className="mobile-panel border border-line bg-white p-5 lg:col-span-7">
-          <h2 className="text-xl font-bold">各題型成長趨勢</h2>
-          {!latest ? (
-            <div className="mt-4 border border-dashed border-line-strong bg-[#f8fbff] p-6 text-center text-muted">
-              新增第一筆英文紀錄後，這裡會自動分析。
-            </div>
-          ) : (
-            <>
-              <p className="mt-1 text-muted">
-                {latest.practiceDate} · {getPracticeTypeLabel(latest.practiceType)} · 依各題型長期趨勢分析
-              </p>
-              <div className="mt-3">
-                <Tag label={getPracticeTypeLabel(latest.practiceType)} />
-              </div>
-              <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                {categoryTrendSummaries.map((summary) => (
-                  <InsightCard
-                    key={summary.key}
-                    title={summary.label}
-                    value={summary.value}
-                    detail={summary.detail}
-                    comparison={{ icon: summary.icon, tone: summary.tone, label: summary.tail }}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-
-        <aside className="mobile-panel border border-line bg-white p-5 lg:col-span-5">
-          <h2 className="text-xl font-bold">練習類型平均</h2>
-          <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {records.length === 0 ? (
-              <div className="col-span-2 border border-dashed border-line-strong bg-[#f8fbff] p-5 text-center text-muted">
-                目前沒有英文練習資料。
-              </div>
-            ) : (
-              ENGLISH_PRACTICE_TYPES.map((type) => {
-                const typeRecords = records.filter((r) => r.practiceType === type.key);
-                const typeTotals = getFiniteValues(typeRecords.map((r) => r.totalScore));
-                return (
-                  <article key={type.key} className="border border-line bg-white p-3.5">
-                    <span className="block text-muted">{type.label}</span>
-                    <strong className="num-display my-2 block text-lg">
-                      {typeTotals.length ? formatScore(average(typeTotals)) : "0"}
-                    </strong>
-                    <small className="block text-muted">{typeRecords.length} 筆資料</small>
-                  </article>
-                );
-              })
-            )}
+      <section className="english-trend" aria-labelledby="english-trend-heading">
+        <div className="english-trend-heading">
+          <div>
+            <h2 id="english-trend-heading">得分率變化</h2>
+            <p>每日得分總和 ÷ 該日各練習類型滿分總和；按日期彙整，不代表逐題正確率。</p>
           </div>
-
-          <div className="mt-5">
-            <h3 className="font-bold">重點發現</h3>
-            {!findings ? (
-              <p className="mt-2 text-muted">目前沒有足夠的細分題型資料。</p>
-            ) : (
-              <div className="mt-2 space-y-2 text-muted">
-                <p>
-                  <strong className="text-ink">最穩定題型：</strong>
-                  {findings.strongest.label}（平均得分率 {formatScore(findings.strongest.value)}%）
-                </p>
-                <p>
-                  <strong className="text-ink">最需要補強：</strong>
-                  {findings.weakest.label}（平均得分率 {formatScore(findings.weakest.value)}%）
-                </p>
-              </div>
-            )}
-          </div>
-        </aside>
-      </div>
-
-      <section className="mobile-panel mt-5 border border-line bg-white p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-bold">總分成長曲線</h2>
-          <label className="flex items-center gap-2 text-sm font-semibold text-muted">
-            顯示題型
-            <select
-              value={trendType}
-              onChange={(event) => setTrendType(event.target.value as "all" | EnglishPracticeType)}
-              aria-label="選擇總分成長曲線題型"
-              className="border border-line bg-white px-3 py-2 text-ink"
-            >
-              <option value="all">全部</option>
-              {ENGLISH_PRACTICE_TYPES.map((type) => (
-                <option key={type.key} value={type.key}>
-                  {type.label}
-                </option>
+          <div className="english-trend-controls">
+            <label>
+              練習類型
+              <select value={trendType} onChange={(event) => setTrendType(event.target.value as "all" | EnglishPracticeType)}>
+                <option value="all">全部類型</option>
+                {ENGLISH_PRACTICE_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
+              </select>
+            </label>
+            <div className="english-period-tabs" role="group" aria-label="趨勢時間範圍">
+              {([
+                { value: "all", label: "全部紀錄" },
+                { value: "30d", label: "近 30 天" },
+                { value: "7d", label: "近 7 天" },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={trendWindow === option.value}
+                  onClick={() => setTrendWindow(option.value)}
+                >
+                  {option.label}
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
         </div>
-        <p className="mt-1 text-muted">
-          {trendType === "all"
-            ? `${ENGLISH_PRACTICE_TYPES.map((type) => type.label).join("、")}分開繪製，Y 軸固定為 0–${ENGLISH_TOTAL_MAX_SCORE} 分，並以虛線標示各類型最高成績。`
-            : `僅顯示${getPracticeTypeLabel(trendType)}成績，Y 軸固定為 0–${trendYAxisMax} 分，並以虛線標示最高成績。`}
+        <p className="english-trend-meta">
+          {dailyTrend.length} 個練習日期 · {filteredRecords.length} 筆練習紀錄
+          {trendType !== "all" && ` · ${getPracticeTypeLabel(trendType)}`}
         </p>
-        <div className="mt-4">
-          <MultiTrendChart
-            series={visibleTrendSeries}
-            emptyMessage="目前選擇的練習類型沒有有效總分資料。"
-            yAxisMin={trendYAxisMin}
-            yAxisMax={trendYAxisMax}
-            referenceLines={trendReferenceLines}
+        {dailyTrend.length >= 2 ? (
+          <TrendChart
+            points={dailyTrend}
+            size="large"
+            yAxisMin={0}
+            yAxisMax={100}
+            valueSuffix="%"
+            emptyMessage="此區間沒有足夠紀錄形成趨勢。"
           />
-        </div>
+        ) : (
+          <div className="english-trend-empty" role="status">
+            {dailyTrend.length === 1
+              ? `目前只有 ${dailyTrend[0].date} 一個練習日期（${dailyTrend[0].name}），尚不足以呈現趨勢；得分率 ${formatScore(dailyTrend[0].value)}%。`
+              : "目前區間沒有可用紀錄；新增不同日期的練習後即可查看趨勢。"}
+          </div>
+        )}
       </section>
 
-      <section className="mobile-panel mt-5 border border-line bg-white p-5">
-        <h2 className="text-xl font-bold">題型得分率比較</h2>
-        <p className="mt-1 text-muted">依練習類型比較各題型平均得分率；克漏字不含詞彙、閱讀、混合及翻譯，好好學不含詞彙。</p>
-        <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {ENGLISH_CATEGORIES.map((category) => {
-            return (
-              <article key={category.key} className="border border-line bg-white p-3.5">
-                <p className="font-bold">{category.label}</p>
-                {ENGLISH_PRACTICE_TYPES.map((type) => {
-                  const rate = isUnavailableCategory(type.key, category.key) ? null : getCategoryAverageRate(category.key, type.key);
-                  return (
-                    <p key={type.key} className="mt-1 text-sm text-muted">
-                      {type.label}：<span className="num-display text-ink">{rate !== null ? `${formatScore(rate)}%` : "-"}</span>
-                    </p>
-                  );
-                })}
-              </article>
-            );
-          })}
+      <section className="english-category-section">
+        <div className="english-section-heading">
+          <div>
+            <h2>題型得分分析</h2>
+            <p>依現有題型分數加權計算得分率；樣本少於 3 筆時不判定需加強。</p>
+          </div>
         </div>
+        {focusCategory && (
+          <p className="english-focus-note">
+            目前可供參考的加強方向：<strong>{focusCategory.label}</strong>（{formatScore(focusCategory.rate as number)}%，{focusCategory.count} 筆）
+          </p>
+        )}
+        <ul className="english-category-list">
+          {categoryStats.map((category) => (
+            <li key={category.key}>
+              <div className="english-category-label">
+                <strong>{category.label}</strong>
+                <span>
+                  {category.rate === null
+                    ? "尚無紀錄"
+                    : category.count < 3
+                      ? `${formatScore(category.rate)}% · 樣本不足（${category.count} 筆）`
+                      : `${formatScore(category.rate)}% · ${category.count} 筆`}
+                </span>
+              </div>
+              <div className="english-category-track" aria-hidden="true">
+                <span style={{ width: `${category.rate === null ? 0 : Math.max(0, Math.min(100, category.rate))}%` }} />
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section className="mobile-panel mt-5 border border-line bg-white p-5">
+      <section className="english-review-note">
+        <h2>錯題複習</h2>
+        <p>
+          目前資料只保存每次練習的總分、題型分數與備註，沒有逐題題目、作答答案或複習狀態，因此無法從既有資料產生錯題清單。
+          可在下方歷史紀錄編輯備註，記下需要回頭複習的內容。
+        </p>
+        {focusCategory && <p>建議優先回看「{focusCategory.label}」相關練習；此提示依至少 3 筆紀錄的得分率排序，不代表逐題診斷。</p>}
+      </section>
+
+      <section className="english-history">
         <h2 className="text-xl font-bold">歷次紀錄與管理</h2>
         <div className="mobile-table-wrap mt-4">
-          <table className="mobile-table w-full min-w-[1180px] border-collapse">
+          <table className="mobile-table w-full border-collapse">
             <thead>
               <tr>
-                {["日期", "練習類型", "練習名稱", "總分", ...ENGLISH_CATEGORIES.map((category) => category.label), "備註", "操作"].map((h) => (
+                {["日期", "練習類型", "練習名稱", "總分", "得分率", ...ENGLISH_CATEGORIES.map((category) => category.label), "備註", "操作"].map((h) => (
                   <th key={h} className="border-b border-line bg-[#f9fafb] px-3 py-3.5 text-left font-bold text-muted">
                     {h}
                   </th>
@@ -457,7 +390,7 @@ function EnglishPageContent() {
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={ENGLISH_CATEGORIES.length + 6} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={ENGLISH_CATEGORIES.length + 7} className="px-3 py-6 text-center text-muted">
                     目前還沒有任何英文練習紀錄。
                   </td>
                 </tr>
@@ -475,6 +408,11 @@ function EnglishPageContent() {
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <select form={formId} name="practiceType" value={editingType} onChange={(event) => setEditingPracticeTypes((current) => ({ ...current, [record.id]: event.target.value }))} className="border border-line px-2 py-1">{ENGLISH_PRACTICE_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}</select> : getPracticeTypeLabel(record.practiceType)}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <input form={formId} name="practiceName" defaultValue={record.practiceName} placeholder={ENGLISH_PRACTICE_NAME_HINTS[editingType as EnglishPracticeType]} className="w-32 border border-line px-2 py-1" /> : record.practiceName}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{formatMaybeNumber(record.totalScore)}</td>
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
+                        {Number.isFinite(record.totalScore) && maximumScore(record) > 0
+                          ? `${formatScore(((record.totalScore as number) / maximumScore(record)) * 100)}%`
+                          : "—"}
+                      </td>
                       {ENGLISH_CATEGORIES.map((category) => (
                         <td key={category.key} className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
                           {isUnavailableCategory(editing ? editingType : record.practiceType, category.key)
@@ -592,26 +530,6 @@ function EnglishPageContent() {
         </div>
       )}
     </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  caption,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  caption: string;
-  highlight?: boolean;
-}) {
-  return (
-    <article className={`mobile-stat-card border p-4.5 ${highlight ? "border-line-strong bg-white" : "border-line bg-white"}`}>
-      <p className="m-0 text-muted">{label}</p>
-      <strong className="num-display mt-2 block text-3xl sm:text-[2.5rem]">{value}</strong>
-      <span className="mt-1 block text-muted">{caption}</span>
-    </article>
   );
 }
 
