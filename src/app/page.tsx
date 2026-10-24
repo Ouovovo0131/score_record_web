@@ -95,6 +95,27 @@ function taskCoversDay(task: StudyTask, key: string) {
   return task.startDate <= key && key <= task.endDate;
 }
 
+function calendarRangeClasses(startDate: string, endDate: string, key: string) {
+  const weekday = new Date(`${key}T00:00:00`).getDay();
+  const continuesBefore = startDate < key;
+  const continuesAfter = endDate > key;
+  const classes = ["relative", "z-10"];
+
+  if (continuesBefore && weekday !== 0) {
+    classes.push("-ml-[5px]", "sm:-ml-[7px]");
+  } else {
+    classes.push("rounded-l-sm");
+  }
+
+  if (continuesAfter && weekday !== 6) {
+    classes.push("-mr-[5px]", "sm:-mr-[7px]");
+  } else {
+    classes.push("rounded-r-sm");
+  }
+
+  return classes.join(" ");
+}
+
 export default function CountdownPage() {
   const now = useNow(1000);
   const [view, setView] = useState<ViewMode>("calendar");
@@ -419,7 +440,7 @@ function CalendarView({ now }: { now: Date }) {
               {items.map((s) => (
                 <span
                   key={s.id}
-                  className={`mt-0.5 block truncate px-1 text-[11px] font-bold leading-5 sm:text-xs ${past ? "bg-[#e5e9f0] text-muted" : "bg-primary text-white"}`}
+                  className={`mt-0.5 block truncate px-1 text-[11px] font-bold leading-5 sm:text-xs ${calendarRangeClasses(s.startDate, s.endDate || s.startDate, key)} ${past ? "bg-[#e5e9f0] text-muted" : "bg-primary text-white"}`}
                 >
                   {s.name}
                 </span>
@@ -428,7 +449,7 @@ function CalendarView({ now }: { now: Date }) {
                 <span
                   key={t.id}
                   style={t.done ? undefined : { backgroundColor: subjectMeta(t.subject).color }}
-                  className={`mt-0.5 block truncate px-1 text-[11px] leading-5 sm:text-xs ${t.kind === "exam" ? "font-bold" : ""} ${t.done ? "bg-[#e5e9f0] text-muted line-through" : "text-white"}`}
+                  className={`mt-0.5 block truncate px-1 text-[11px] leading-5 sm:text-xs ${calendarRangeClasses(t.startDate, t.endDate, key)} ${t.kind === "exam" ? "font-bold" : ""} ${t.done ? "bg-[#e5e9f0] text-muted line-through" : "text-white"}`}
                 >
                   {t.kind === "exam" ? "考 " : ""}{t.title}
                 </span>
