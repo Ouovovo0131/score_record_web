@@ -4,14 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { authFetch } from "@/lib/auth-fetch";
 import { useAuth } from "@/context/AuthContext";
-import { InsightCard, Tag, buildComparison } from "@/components/InsightCard";
+import { Tag } from "@/components/InsightCard";
 import { TrendChart } from "@/components/TrendChart";
-import { BENCHMARKS, RANK_FIELDS, SCIENCE_DETAIL_MAX_SCORE, SCIENCE_DETAIL_SCORES, SUBJECTS, average, subjectsForTrack, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
+import { BENCHMARKS, RANK_FIELDS, SCIENCE_DETAIL_MAX_SCORE, SCIENCE_DETAIL_SCORES, SUBJECTS, subjectsForTrack, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
 import type { ExamRecordDTO, GoalDTO } from "@/lib/types";
-
-function getFiniteValues(values: (number | null | undefined)[]): number[] {
-  return values.filter((v): v is number => Number.isFinite(v));
-}
 
 function formatMaybeNumber(value: number | null | undefined): string {
   return Number.isFinite(value) ? formatScore(value as number) : "—";
@@ -91,6 +87,7 @@ function ScorePageContent() {
   const [showModal, setShowModal] = useState(false);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [showGoalForm, setShowGoalForm] = useState(false);
+  const [trendMetric, setTrendMetric] = useState("total");
 
   useEffect(() => {
     Promise.all([
@@ -108,46 +105,16 @@ function ScorePageContent() {
   const latest = records.at(-1) || null;
   const previous = records.length > 1 ? records.at(-2) : null;
 
-  const totalGrades = getFiniteValues(records.map((r) => r.totalGrade));
-  const averageGrade = totalGrades.length ? average(totalGrades) : null;
-  const highestGrade = totalGrades.length ? Math.max(...totalGrades) : null;
+  const totalGradeChange =
+    latest && previous && Number.isFinite(latest.totalGrade) && Number.isFinite(previous.totalGrade)
+      ? (latest.totalGrade as number) - (previous.totalGrade as number)
+      : null;
+  const totalGoalDifference =
+    latest && Number.isFinite(latest.totalGrade) && Number.isFinite(goal?.targetTotalGrade)
+      ? (latest.totalGrade as number) - (goal?.targetTotalGrade as number)
+      : null;
 
-  const bestImprovement = useMemo(() => {
-    if (!latest || !previous) {
-      return { value: "暫無資料", detail: "至少需要 2 筆成績才可比較", status: "" as const };
-    }
-    const comparisons = subjects.map((subject) => {
-      const latestScore = latest[subject.scoreKey as keyof ExamRecordDTO] as number | null;
-      const previousScore = previous[subject.scoreKey as keyof ExamRecordDTO] as number | null;
-      if (!Number.isFinite(latestScore) || !Number.isFinite(previousScore)) return null;
-      return { label: subject.label, delta: (latestScore as number) - (previousScore as number) };
-    }).filter((v): v is { label: string; delta: number } => v !== null);
-
-    if (!comparisons.length) {
-      return { value: "暫無資料", detail: "缺少可比較的各科分數", status: "" as const };
-    }
-    const best = comparisons.reduce((a, b) => (b.delta > a.delta ? b : a));
-    if (best.delta > 0) {
-      return { value: best.label, detail: `比上一場進步 ${formatScore(best.delta)} 分`, status: "positive" as const };
-    }
-    if (best.delta === 0) {
-      return { value: best.label, detail: "與上一場持平，暫無科目進步", status: "" as const };
-    }
-    return { value: "暫無進步", detail: `${best.label} 變化最小，${formatScore(best.delta)} 分`, status: "negative" as const };
-  }, [latest, previous, subjects]);
-
-  const goalGap = useMemo(() => {
-    if (!latest || !goal) return { value: "未設定", detail: "先新增成績與目標" };
-    if (Number.isFinite(goal.targetTotalGrade)) {
-      const diff = (goal.targetTotalGrade as number) - (latest.totalGrade ?? 0);
-      return diff <= 0
-        ? { value: `超前 ${Math.abs(diff)} 級`, detail: goal.goalName || "總級分已達成目標" }
-        : { value: `還差 ${diff} 級`, detail: goal.goalName || "以總級分為主要目標" };
-    }
-    return { value: "未設定", detail: "先設定總級分目標" };
-  }, [latest, goal]);
-
-  const goalProgressItems = useMemo(() => {
+  const goalProgressItems = (() => {
     if (!goal) return [];
     const items: { label: string; value: string; detail: string; status: "positive" | "negative" | "neutral" }[] = [];
     if (goal.goalName) {
@@ -185,7 +152,7 @@ function ScorePageContent() {
     });
 
     return items;
-  }, [goal, latest, subjects]);
+  })();
 
   const reviewTagCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -196,8 +163,24 @@ function ScorePageContent() {
   }, [records]);
 
   const trendPoints = records
-    .map((record) => ({ date: record.examDate, value: record.totalGrade }))
-    .filter((p): p is { date: string; value: number } => Number.isFinite(p.value));
+    .map((record) => ({ date: record.examDate, name: record.examName, value: record.totalGrade }))
+    .filter((p): p is { date: string; name: string; value: number } => Number.isFinite(p.value));
+
+  const selectedSubject = subjects.find((subject) => subject.key === trendMetric) ?? null;
+  const selectedTrendPoints = selectedSubject
+    ? records
+        .map((record) => ({
+          date: record.examDate,
+          name: record.examName,
+          value: record[selectedSubject.gradeKey as keyof ExamRecordDTO] as number | null,
+        }))
+        .filter((point): point is { date: string; name: string; value: number } => Number.isFinite(point.value))
+    : trendPoints;
+  const totalGradeMax = (subjects.length - (subjects.some((subject) => subject.key === "social") && !subjects.some((subject) => subject.key === "science") ? 1 : 0)) * 15;
+  const selectedGoalKey = selectedSubject ? GOAL_KEY_BY_SUBJECT[selectedSubject.key] : null;
+  const selectedTarget = selectedSubject && selectedGoalKey ? goal?.[selectedGoalKey] : goal?.targetTotalGrade;
+  const trendTarget = typeof selectedTarget === "number" && Number.isFinite(selectedTarget) ? selectedTarget : null;
+  const trendAxisMax = Math.max(selectedSubject ? 15 : totalGradeMax, trendTarget ?? 0);
 
   const overallRankMovement = (() => {
     if (!latest || !previous || !Number.isFinite(latest.overallRank) || !Number.isFinite(latest.overallTotal) ||
@@ -413,7 +396,7 @@ function ScorePageContent() {
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">Score Record Dashboard</p>
           <h1 className="text-4xl font-extrabold sm:text-5xl">模擬考成績統計</h1>
-          <p className="mt-2 max-w-2xl text-muted">用最省空間的儀表板方式追蹤分數、級分、目標差距與考後檢討重點。</p>
+          <p className="mt-2 max-w-2xl text-muted">檢視總級分走勢、各科變化與目標差距，掌握下一步的準備方向。</p>
         </div>
         <button
           type="button"
@@ -434,230 +417,186 @@ function ScorePageContent() {
         </div>
       )}
 
-      <div className="mobile-stat-grid grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="目前筆數" value={String(records.length)} caption="已建立的模擬考紀錄" />
-        <StatCard label="平均總級分" value={averageGrade !== null ? formatScore(averageGrade) : "0"} caption="歷次總級分平均" />
-        <StatCard label="最高總級分" value={highestGrade !== null ? formatScore(highestGrade) : "0"} caption="目前最佳總級分" />
-        <StatCard label="進步分數最高的科目" value={bestImprovement.value} caption={bestImprovement.detail} />
-        <StatCard label="距離目標" value={goalGap.value} caption={goalGap.detail} highlight />
-      </div>
+      <section className="score-summary" aria-label="成績摘要">
+        <SummaryMetric label="最新總級分" value={formatMaybeNumber(latest?.totalGrade)} detail={latest ? `${latest.examName} · ${latest.examDate}` : "新增成績後顯示"} />
+        <SummaryMetric
+          label="較前次變化"
+          value={totalGradeChange === null ? "—" : `${totalGradeChange > 0 ? "+" : ""}${formatScore(totalGradeChange)} 級`}
+          detail={totalGradeChange === null ? "至少需要兩筆有效總級分" : totalGradeChange > 0 ? "較上一場進步" : totalGradeChange < 0 ? "較上一場退步" : "與上一場持平"}
+          tone={totalGradeChange === null || totalGradeChange === 0 ? "neutral" : totalGradeChange > 0 ? "positive" : "negative"}
+        />
+        <SummaryMetric
+          label="目標總級分"
+          value={Number.isFinite(goal?.targetTotalGrade) ? formatScore(goal?.targetTotalGrade as number) : "未設定"}
+          detail={
+            totalGoalDifference === null
+              ? goal?.goalName || "設定目標後顯示差距"
+              : totalGoalDifference > 0
+                ? `已達標 · 超前 ${formatScore(totalGoalDifference)} 級`
+                : totalGoalDifference === 0
+                  ? "已達標"
+                  : `還差 ${formatScore(Math.abs(totalGoalDifference))} 級`
+          }
+          tone={totalGoalDifference !== null && totalGoalDifference > 0 ? "positive" : "neutral"}
+        />
+      </section>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <section className="mobile-panel border border-line bg-white p-5 lg:col-span-7">
-          <h2 className="text-xl font-bold">最新考試聚焦</h2>
-          <p className="mt-1 text-muted">自動抓取最近一次考試，與上一次或平均表現比較。</p>
-
-          {!latest ? (
-            <div className="mt-4 border border-dashed border-line-strong bg-[#f8fbff] p-6 text-center text-muted">
-              新增成績後，這裡會自動顯示最新表現與比較分析。
-            </div>
-          ) : (
-            <>
-              <div className="mt-4 flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-2xl font-bold">{latest.examName}</h3>
-                  <p className="mt-1 text-muted">
-                    {latest.examDate} · 總級分 {formatMaybeNumber(latest.totalGrade)}
-                  </p>
-                  <p className="mt-1 text-sm text-muted">
-                    {RANK_FIELDS.map(({ key, totalKey, label }) => `${label} ${formatMaybeNumber(latest[key])}/${formatMaybeNumber(latest[totalKey])}`).join(" · ")}
-                  </p>
-                  <p className={`mt-2 font-bold ${
-                    overallRankMovement.tone === "positive" ? "text-success" :
-                    overallRankMovement.tone === "negative" ? "text-danger" : "text-muted"
-                  }`}>
-                    {overallRankMovement.label}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(latest.reviewTags || []).map((tag) => (
-                    <Tag key={tag} label={tag} />
-                  ))}
-                </div>
-              </div>
-              <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                <InsightCard
-                  title="總級分"
-                  value={formatMaybeNumber(latest.totalGrade)}
-                  detail={`目標 ${formatMaybeNumber(goal?.targetTotalGrade)}`}
-                  comparison={buildComparison(
-                    latest.totalGrade,
-                    previous ? previous.totalGrade : average(getFiniteValues(records.map((r) => r.totalGrade))),
-                    previous ? "比上次" : "比平均",
-                    "級"
-                  )}
-                />
-                {subjects.map((subject) => {
-                  const latestGrade = latest[subject.gradeKey as keyof ExamRecordDTO] as number | null;
-                  const previousGrade = previous ? previous[subject.gradeKey as keyof ExamRecordDTO] as number | null : null;
-                  const gradeChange = Number.isFinite(latestGrade) && Number.isFinite(previousGrade)
-                    ? (latestGrade as number) - (previousGrade as number)
-                    : null;
-                  return (
-                    <article key={subject.key} className="border border-line bg-white p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-bold">{subject.label}</h3>
-                        <span className="border border-primary bg-[#eff4ff] px-2.5 py-1 font-bold text-primary">
-                          {getBenchmarkBand(latest, subject.key, latestGrade)}
-                        </span>
-                      </div>
-                      <p className="mt-3 text-sm text-muted">本次級分</p>
-                      <strong className="num-display block text-3xl text-primary">{formatMaybeNumber(latestGrade)}</strong>
-                      <p className={`mt-2 font-bold ${
-                        gradeChange === null ? "text-muted" :
-                        gradeChange > 0 ? "text-success" :
-                        gradeChange < 0 ? "text-danger" : "text-muted"
-                      }`}>
-                        {gradeChange === null
-                          ? "無前次級分可比較"
-                          : gradeChange > 0
-                            ? `較上次進步 ${formatScore(gradeChange)} 級分`
-                            : gradeChange < 0
-                              ? `較上次退步 ${formatScore(Math.abs(gradeChange))} 級分`
-                              : "與上次級分持平"}
-                      </p>
-                    </article>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </section>
-
-        <aside className="mobile-panel border border-line bg-white p-5 lg:col-span-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">目標差距</h2>
-            <button
-              type="button"
-              onClick={() => setShowGoalForm((v) => !v)}
-              className="border border-line bg-white px-3 py-1.5 text-sm font-bold text-primary"
-            >
-              {showGoalForm ? "取消" : "編輯目標"}
-            </button>
+      <section className="score-trend" aria-labelledby="score-trend-heading">
+        <div className="score-trend-header">
+          <div>
+            <p className="score-section-kicker">成績分析</p>
+            <h2 id="score-trend-heading">歷次成績變化</h2>
+            <p className="score-trend-caption">
+              {selectedSubject ? `${selectedSubject.label}級分（滿分 15）` : `總級分（滿分 ${totalGradeMax}）`}
+              {" · "}{selectedTrendPoints.length} 筆有效紀錄
+              {selectedTrendPoints.length < 3 && " · 資料尚少，僅呈現實際紀錄"}
+            </p>
           </div>
-
-          {showGoalForm && goal && (
-            <form
-              className="mt-4 grid grid-cols-2 gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSaveGoal(e.currentTarget);
-              }}
-            >
-              <label className="col-span-2 flex flex-col gap-1 text-sm text-muted">
-                目標校系
-                <input name="goalName" defaultValue={goal.goalName} className="border border-line px-3 py-2" />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-muted">
-                總級分
-                <input name="targetTotalGrade" type="number" defaultValue={goal.targetTotalGrade ?? ""} className="border border-line px-3 py-2" />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-muted">
-                國文級分
-                <input name="targetChineseGrade" type="number" defaultValue={goal.targetChineseGrade ?? ""} className="border border-line px-3 py-2" />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-muted">
-                英文級分
-                <input name="targetEnglishGrade" type="number" defaultValue={goal.targetEnglishGrade ?? ""} className="border border-line px-3 py-2" />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-muted">
-                數A級分
-                <input name="targetMathGrade" type="number" defaultValue={goal.targetMathGrade ?? ""} className="border border-line px-3 py-2" />
-              </label>
-              {subjects.some((s) => s.key === "mathB") && (
-                <label className="flex flex-col gap-1 text-sm text-muted">
-                  數B級分
-                  <input name="targetMathBGrade" type="number" defaultValue={goal.targetMathBGrade ?? ""} className="border border-line px-3 py-2" />
-                </label>
-              )}
-              {subjects.some((s) => s.key === "social") && (
-                <label className="flex flex-col gap-1 text-sm text-muted">
-                  社會級分
-                  <input name="targetSocialGrade" type="number" defaultValue={goal.targetSocialGrade ?? ""} className="border border-line px-3 py-2" />
-                </label>
-              )}
-              {subjects.some((s) => s.key === "science") && (
-                <label className="flex flex-col gap-1 text-sm text-muted">
-                  自然級分
-                  <input name="targetScienceGrade" type="number" defaultValue={goal.targetScienceGrade ?? ""} className="border border-line px-3 py-2" />
-                </label>
-              )}
-              <button type="submit" className="col-span-2 mt-2 border border-ink bg-ink px-4 py-2 font-bold text-white">
-                儲存目標
+          <div className="score-metric-tabs" role="group" aria-label="選擇趨勢項目">
+            <button type="button" aria-pressed={trendMetric === "total"} onClick={() => setTrendMetric("total")}>總級分</button>
+            {subjects.map((subject) => (
+              <button
+                key={subject.key}
+                type="button"
+                aria-pressed={trendMetric === subject.key}
+                onClick={() => setTrendMetric(subject.key)}
+              >
+                {subject.label}
               </button>
-            </form>
-          )}
-
-          <div className="mobile-two-col mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {goalProgressItems.length === 0 ? (
-              <div className="col-span-2 border border-dashed border-line-strong bg-[#f8fbff] p-5 text-center text-muted">
-                尚未設定任何目標。
-              </div>
-            ) : (
-              goalProgressItems.map((item, index) => (
-                <article key={index} className="border border-line bg-white p-3.5">
-                  <span className="block text-muted">{item.label}</span>
-                  <strong
-                    className={`num-display my-2 block text-lg ${
-                      item.status === "positive" ? "text-success" : item.status === "negative" ? "text-danger" : ""
-                    }`}
-                  >
-                    {item.value}
-                  </strong>
-                  <small className="block text-muted">{item.detail}</small>
-                </article>
-              ))
-            )}
+            ))}
           </div>
-        </aside>
-      </div>
+        </div>
+        <TrendChart
+          points={selectedTrendPoints}
+          size="large"
+          yAxisMin={0}
+          yAxisMax={trendAxisMax}
+          referenceLine={trendTarget !== null ? { value: trendTarget, label: `目標 ${formatScore(trendTarget)}` } : undefined}
+          emptyMessage={`目前沒有${selectedSubject ? `${selectedSubject.label}級分` : "總級分"}可供分析；新增成績後會在此顯示。`}
+        />
+        <div className="score-chart-legend">
+          <span><i className="score-legend-line" />實際紀錄</span>
+          {trendTarget !== null && <span><i className="score-legend-target" />目標 {formatScore(trendTarget)} 級</span>}
+          <span className="score-chart-help">將游標移至資料點或以鍵盤聚焦，可查看考試名稱、日期與分數</span>
+        </div>
+      </section>
 
-      <section className="mobile-panel mt-5 border border-line bg-white p-5">
-        <h2 className="text-xl font-bold">長期成長趨勢</h2>
-        <p className="mt-1 text-muted">依每次考試的各科分數觀察成長，長條圖呈現最近一次各題型得分佔該題型滿分的比率。</p>
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {subjects.map((subject) => {
-            const points = records
-              .map((record) => ({
-                date: record.examDate,
-                value: record[subject.scoreKey as keyof ExamRecordDTO] as number | null,
-              }))
-              .filter((point): point is { date: string; value: number } => Number.isFinite(point.value));
-            return (
-              <article key={subject.key} className="border border-line bg-[#f9fafb] p-3.5">
-                <h3 className="font-bold">{subject.label}成長趨勢</h3>
-                <div className="mt-2">
-                  <TrendChart points={points} color="#5b62a8" emptyMessage={`尚無${subject.label}分數資料。`} />
-                </div>
-                <div className="mt-3">
+      <section className="score-detail-section">
+        <div className="score-section-heading">
+          <div>
+            <h2>最新考試詳細分析</h2>
+            {latest && <p>{latest.examName} · {latest.examDate} · 總級分 {formatMaybeNumber(latest.totalGrade)}</p>}
+          </div>
+          {latest && <p className={`score-rank-movement ${overallRankMovement.tone}`}>{overallRankMovement.label}</p>}
+        </div>
+        {!latest ? (
+          <p className="score-empty-state">新增第一筆模擬考紀錄後，這裡會顯示各科表現與考後備註。</p>
+        ) : (
+          <>
+            <div className="mobile-table-wrap">
+              <table className="score-detail-table">
+                <thead>
+                  <tr><th>科目</th><th>原始分數</th><th>級分</th><th>較前次</th><th>五標位置</th></tr>
+                </thead>
+                <tbody>
+                  {subjects.map((subject) => {
+                    const grade = latest[subject.gradeKey as keyof ExamRecordDTO] as number | null;
+                    const priorGrade = previous ? previous[subject.gradeKey as keyof ExamRecordDTO] as number | null : null;
+                    const change = Number.isFinite(grade) && Number.isFinite(priorGrade) ? (grade as number) - (priorGrade as number) : null;
+                    return (
+                      <tr key={subject.key}>
+                        <th scope="row">{subject.label}</th>
+                        <td>{formatMaybeNumber(latest[subject.scoreKey as keyof ExamRecordDTO] as number | null)} 分</td>
+                        <td>{formatMaybeNumber(grade)} / 15</td>
+                        <td className={change !== null && change < 0 ? "score-negative" : change !== null && change > 0 ? "score-positive" : ""}>
+                          {change === null ? "—" : `${change > 0 ? "+" : ""}${formatScore(change)} 級`}
+                        </td>
+                        <td>{getBenchmarkBand(latest, subject.key, grade)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <details className="score-breakdown">
+              <summary>查看最新各科題型得分比例</summary>
+              <div className="score-breakdown-grid">
+                {subjects.map((subject) => (
                   <ScoreRatioBars
+                    key={subject.key}
                     title={subject.label}
                     items={[
                       ...subject.components.map(({ key, label, maxScore }) => ({
                         label,
-                        value: latest ? (latest[key as keyof ExamRecordDTO] as number | null) : null,
+                        value: latest[key as keyof ExamRecordDTO] as number | null,
                         max: maxScore ?? 100,
                       })),
                       ...(subject.key === "science"
                         ? SCIENCE_DETAIL_SCORES.map(({ key, label }) => ({
                             label: `${label}（整科）`,
-                            value: latest ? (latest[key as keyof ExamRecordDTO] as number | null) : null,
+                            value: latest[key as keyof ExamRecordDTO] as number | null,
                             max: SCIENCE_DETAIL_MAX_SCORE,
                           }))
                         : []),
                     ]}
                   />
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        <div className="mt-5 border-t pt-4">
-          <h3 className="font-bold">總級分長期趨勢</h3>
-          <div className="mt-2">
-            <TrendChart points={trendPoints} color="#638b7c" />
+                ))}
+              </div>
+            </details>
+            {((latest.reviewTags || []).length > 0 || latest.notes) && (
+              <div className="score-review-notes">
+                {(latest.reviewTags || []).length > 0 && <div className="flex flex-wrap gap-2">{(latest.reviewTags || []).map((tag) => <Tag key={tag} label={tag} />)}</div>}
+                {latest.notes && <p>{latest.notes}</p>}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="score-goal-section">
+        <div className="score-section-heading">
+          <div>
+            <h2>目標與差距</h2>
+            {goal?.goalName && <p>目標校系：{goal.goalName}</p>}
           </div>
+          <button type="button" onClick={() => setShowGoalForm((value) => !value)} className="score-secondary-button">
+            {showGoalForm ? "取消編輯" : "編輯目標"}
+          </button>
         </div>
+
+        {showGoalForm && goal && (
+          <form
+            className="score-goal-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSaveGoal(event.currentTarget);
+            }}
+          >
+            <label>目標校系<input name="goalName" defaultValue={goal.goalName} /></label>
+            <label>總級分<input name="targetTotalGrade" type="number" min={0} defaultValue={goal.targetTotalGrade ?? ""} /></label>
+            <label>國文級分<input name="targetChineseGrade" type="number" min={0} max={15} defaultValue={goal.targetChineseGrade ?? ""} /></label>
+            <label>英文級分<input name="targetEnglishGrade" type="number" min={0} max={15} defaultValue={goal.targetEnglishGrade ?? ""} /></label>
+            <label>數A級分<input name="targetMathGrade" type="number" min={0} max={15} defaultValue={goal.targetMathGrade ?? ""} /></label>
+            {subjects.some((subject) => subject.key === "mathB") && <label>數B級分<input name="targetMathBGrade" type="number" min={0} max={15} defaultValue={goal.targetMathBGrade ?? ""} /></label>}
+            {subjects.some((subject) => subject.key === "social") && <label>社會級分<input name="targetSocialGrade" type="number" min={0} max={15} defaultValue={goal.targetSocialGrade ?? ""} /></label>}
+            {subjects.some((subject) => subject.key === "science") && <label>自然級分<input name="targetScienceGrade" type="number" min={0} max={15} defaultValue={goal.targetScienceGrade ?? ""} /></label>}
+            <button type="submit" className="score-primary-button">儲存目標</button>
+          </form>
+        )}
+
+        {goalProgressItems.length === 0 ? (
+          <p className="score-empty-state">尚未設定目標。</p>
+        ) : (
+          <ul className="score-goal-list">
+            {goalProgressItems.map((item) => (
+              <li key={item.label}>
+                <span>{item.label}</span>
+                <strong className={item.status === "positive" ? "score-positive" : ""}>{item.value}</strong>
+                <small>{item.detail}</small>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="mobile-panel mt-5 border border-line bg-white p-5">
@@ -919,23 +858,23 @@ function ScorePageContent() {
   );
 }
 
-function StatCard({
+function SummaryMetric({
   label,
   value,
-  caption,
-  highlight = false,
+  detail,
+  tone = "neutral",
 }: {
   label: string;
   value: string;
-  caption: string;
-  highlight?: boolean;
+  detail: string;
+  tone?: "positive" | "negative" | "neutral";
 }) {
   return (
-    <article className={`mobile-stat-card border p-4.5 ${highlight ? "border-line-strong bg-white" : "border-line bg-white"}`}>
-      <p className="m-0 text-muted">{label}</p>
-      <strong className="num-display mt-2 block text-3xl sm:text-[2.5rem]">{value}</strong>
-      <span className="mt-1 block text-muted">{caption}</span>
-    </article>
+    <div className="score-summary-item">
+      <span>{label}</span>
+      <strong className={`num-display score-${tone}`}>{value}</strong>
+      <small>{detail}</small>
+    </div>
   );
 }
 
