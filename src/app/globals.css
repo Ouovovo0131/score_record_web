@@ -416,6 +416,10 @@ a {
   white-space: nowrap;
 }
 
+.mobile-bottom-nav {
+  display: none;
+}
+
 .score-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1523,23 +1527,56 @@ a {
     padding-block: 0.7rem 0;
   }
 
+  .dashboard-nav {
+    position: relative;
+    z-index: 20;
+  }
+
   .dashboard-brand-mark {
     width: 32px;
     height: 32px;
   }
 
   .dashboard-links {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: flex-start;
-    overflow-x: auto;
-    margin-inline: -16px;
-    padding: 0.25rem 16px 0.65rem;
-    scrollbar-width: none;
+    display: none;
   }
 
-  .dashboard-links::-webkit-scrollbar {
-    display: none;
+  .mobile-bottom-nav {
+    position: fixed;
+    z-index: 30;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    border-top: 1px solid var(--color-line);
+    background: rgb(255 255 255 / 96%);
+    padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 16px rgb(22 30 50 / 6%);
+    backdrop-filter: blur(12px);
+  }
+
+  .mobile-bottom-nav-link {
+    display: grid;
+    min-width: 0;
+    min-height: 48px;
+    place-items: center;
+    border-radius: 9px;
+    color: var(--color-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .mobile-bottom-nav-link.is-active {
+    background: #eef0fa;
+    color: var(--color-primary);
+    font-weight: 700;
+  }
+
+  body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
 
   .dashboard-nav-link {
@@ -1733,9 +1770,14 @@ a {
     display: none;
   }
 
+  .dashboard-nav-inner {
+    width: calc(100% - 28px);
+    padding-block: 0.55rem;
+  }
+
   .mobile-page {
     width: calc(100% - 28px);
-    padding-block: 1.25rem 2.25rem;
+    padding-block: 1rem 1.5rem;
   }
 
   .mobile-page .mobile-panel {
@@ -1755,7 +1797,7 @@ a {
   }
 
   .mobile-page-header h1 {
-    font-size: 1.75rem;
+    font-size: 1.55rem;
   }
 
   .score-summary-item {

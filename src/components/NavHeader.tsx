@@ -6,12 +6,12 @@ import { useAuth } from "@/context/AuthContext";
 import { TRACK_LABELS, type Track } from "@/lib/data";
 
 const NAV_LINKS = [
-  { href: "/", label: "總覽" },
-  { href: "/score", label: "成績統計" },
-  { href: "/english", label: "英文練習" },
-  { href: "/study", label: "讀書紀錄" },
-  { href: "/weakness", label: "弱點管理" },
-  { href: "/settings", label: "設定與匯出" },
+  { href: "/", label: "總覽", mobileLabel: "總覽" },
+  { href: "/score", label: "成績統計", mobileLabel: "成績" },
+  { href: "/english", label: "英文練習", mobileLabel: "英文" },
+  { href: "/study", label: "讀書紀錄", mobileLabel: "讀書" },
+  { href: "/weakness", label: "弱點管理", mobileLabel: "弱點" },
+  { href: "/settings", label: "設定與匯出", mobileLabel: "設定" },
 ];
 
 export default function NavHeader() {
@@ -40,6 +40,23 @@ export default function NavHeader() {
                 aria-current={isActive ? "page" : undefined}
               >
                 {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <nav className="mobile-bottom-nav" aria-label="手機主要頁面">
+          {NAV_LINKS.map((link) => {
+            const isActive = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`mobile-bottom-nav-link${isActive ? " is-active" : ""}`}
+                aria-label={link.label}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {link.mobileLabel}
               </Link>
             );
           })}
