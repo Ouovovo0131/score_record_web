@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import { buildExamRecordData, serializeExamRecord, validateExamRecordData } from "@/lib/exam-record";
+import { readJsonObject } from "@/lib/learning-validation";
 
 export async function GET(request: NextRequest) {
   const userEmail = await requireDataUser(request);
@@ -16,7 +17,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   const validationError = validateExamRecordData(body);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   const data = buildExamRecordData(body);

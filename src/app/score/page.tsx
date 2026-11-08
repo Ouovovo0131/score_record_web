@@ -6,8 +6,9 @@ import { authFetch } from "@/lib/auth-fetch";
 import { useAuth } from "@/context/AuthContext";
 import { Tag } from "@/components/InsightCard";
 import { TrendChart } from "@/components/TrendChart";
+import { questionAccuracy, scoreStatistics } from "@/lib/analytics";
 import { BENCHMARKS, RANK_FIELDS, SCIENCE_DETAIL_MAX_SCORE, SCIENCE_DETAIL_SCORES, SUBJECTS, subjectsForTrack, calculateSubjectScore, calculateTotalGrade, formatScore } from "@/lib/data";
-import type { ExamRecordDTO, GoalDTO } from "@/lib/types";
+import type { EnglishRecordDTO, ExamRecordDTO, GoalDTO } from "@/lib/types";
 
 function formatMaybeNumber(value: number | null | undefined): string {
   return Number.isFinite(value) ? formatScore(value as number) : "—";
@@ -88,15 +89,19 @@ function ScorePageContent() {
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [trendMetric, setTrendMetric] = useState("total");
+  const [trendRange, setTrendRange] = useState<"all" | "3" | "5">("all");
+  const [englishRecords, setEnglishRecords] = useState<EnglishRecordDTO[]>([]);
 
   useEffect(() => {
     Promise.all([
       authFetch(user, "/api/exam-records").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
       authFetch(user, "/api/goals").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
+      authFetch(user, "/api/english-records").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
     ])
-      .then(([recordsData, goalData]) => {
+      .then(([recordsData, goalData, englishData]) => {
         setRecords(recordsData);
         setGoal(goalData);
+        setEnglishRecords(englishData);
       })
       .catch(() => setStatus({ text: "讀取資料失敗，請稍後再試。", type: "error" }))
       .finally(() => setLoading(false));
@@ -113,6 +118,7 @@ function ScorePageContent() {
     latest && Number.isFinite(latest.totalGrade) && Number.isFinite(goal?.targetTotalGrade)
       ? (latest.totalGrade as number) - (goal?.targetTotalGrade as number)
       : null;
+  const englishAccuracy = questionAccuracy(englishRecords).rate;
 
   const goalProgressItems = (() => {
     if (!goal) return [];
@@ -150,6 +156,8 @@ function ScorePageContent() {
       const item = buildItem(subject.label, latest ? (latest[subject.gradeKey as keyof ExamRecordDTO] as number | null) : null, goal[targetKey], "級");
       if (item) items.push(item);
     });
+    const englishAccuracyItem = buildItem("英文正確率", englishAccuracy, goal.targetEnglishAccuracy, "%");
+    if (englishAccuracyItem) items.push(englishAccuracyItem);
 
     return items;
   })();
@@ -162,13 +170,14 @@ function ScorePageContent() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [records]);
 
-  const trendPoints = records
+  const trendRecords = trendRange === "all" ? records : records.slice(-Number(trendRange));
+  const trendPoints = trendRecords
     .map((record) => ({ date: record.examDate, name: record.examName, value: record.totalGrade }))
     .filter((p): p is { date: string; name: string; value: number } => Number.isFinite(p.value));
 
   const selectedSubject = subjects.find((subject) => subject.key === trendMetric) ?? null;
   const selectedTrendPoints = selectedSubject
-    ? records
+    ? trendRecords
         .map((record) => ({
           date: record.examDate,
           name: record.examName,
@@ -204,14 +213,17 @@ function ScorePageContent() {
     }
     return { label: `總排名比率持平（${formatScore(latestRatio * 100)}%）`, tone: "neutral" as const };
   })();
+  const totalGradeStats = scoreStatistics(records.map((record) => record.totalGrade));
 
   async function refresh() {
-    const [recordsData, goalData] = await Promise.all([
+    const [recordsData, goalData, englishData] = await Promise.all([
       authFetch(user, "/api/exam-records").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
       authFetch(user, "/api/goals").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
+      authFetch(user, "/api/english-records").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
     ]);
     setRecords(recordsData);
     setGoal(goalData);
+    setEnglishRecords(englishData);
   }
 
   async function handleAddRecord(formEl: HTMLFormElement) {
@@ -368,6 +380,8 @@ function ScorePageContent() {
       targetMathBGrade: subjects.some((s) => s.key === "mathB") ? toNum("targetMathBGrade") : goal?.targetMathBGrade ?? null,
       targetScienceGrade: subjects.some((s) => s.key === "science") ? toNum("targetScienceGrade") : goal?.targetScienceGrade ?? null,
       targetSocialGrade: subjects.some((s) => s.key === "social") ? toNum("targetSocialGrade") : goal?.targetSocialGrade ?? null,
+      targetEnglishAccuracy: toNum("targetEnglishAccuracy"),
+      targetDate: String(formData.get("targetDate") || "") || null,
     };
 
     const res = await authFetch(user, "/api/goals", {
@@ -466,6 +480,19 @@ function ScorePageContent() {
             ))}
           </div>
         </div>
+        <div className="score-trend-controls">
+          <span>紀錄範圍</span>
+          {([
+            { value: "all", label: "全部" },
+            { value: "3", label: "最近 3 筆" },
+            { value: "5", label: "最近 5 筆" },
+          ] as const).map((option) => (
+            <button key={option.value} type="button" aria-pressed={trendRange === option.value} onClick={() => setTrendRange(option.value)}>
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="score-trend-caption">僅繪製有填級分的紀錄，缺漏資料不補值；目前顯示 {selectedTrendPoints.length} 筆有效資料。</p>
         <TrendChart
           points={selectedTrendPoints}
           size="large"
@@ -474,6 +501,14 @@ function ScorePageContent() {
           referenceLine={trendTarget !== null ? { value: trendTarget, label: `目標 ${formatScore(trendTarget)}` } : undefined}
           emptyMessage={`目前沒有${selectedSubject ? `${selectedSubject.label}級分` : "總級分"}可供分析；新增成績後會在此顯示。`}
         />
+        {!selectedSubject && (
+          <div className="score-stability" aria-label="總級分穩定度">
+            <div><span>歷史平均</span><strong>{formatMaybeNumber(totalGradeStats.average)}</strong></div>
+            <div><span>標準差</span><strong>{formatMaybeNumber(totalGradeStats.standardDeviation)}</strong></div>
+            <div><span>最高 / 最低</span><strong>{totalGradeStats.highest === null ? "—" : `${formatScore(totalGradeStats.highest)} / ${formatScore(totalGradeStats.lowest)}`}</strong></div>
+            <div><span>分數範圍</span><strong>{formatMaybeNumber(totalGradeStats.range)}</strong></div>
+          </div>
+        )}
         <div className="score-chart-legend">
           <span><i className="score-legend-line" />實際紀錄</span>
           {trendTarget !== null && <span><i className="score-legend-target" />目標 {formatScore(trendTarget)} 級</span>}
@@ -553,7 +588,7 @@ function ScorePageContent() {
         )}
       </section>
 
-      <section className="score-goal-section">
+      <section id="goal-settings" className="score-goal-section">
         <div className="score-section-heading">
           <div>
             <h2>目標與差距</h2>
@@ -580,6 +615,8 @@ function ScorePageContent() {
             {subjects.some((subject) => subject.key === "mathB") && <label>數B級分<input name="targetMathBGrade" type="number" min={0} max={15} defaultValue={goal.targetMathBGrade ?? ""} /></label>}
             {subjects.some((subject) => subject.key === "social") && <label>社會級分<input name="targetSocialGrade" type="number" min={0} max={15} defaultValue={goal.targetSocialGrade ?? ""} /></label>}
             {subjects.some((subject) => subject.key === "science") && <label>自然級分<input name="targetScienceGrade" type="number" min={0} max={15} defaultValue={goal.targetScienceGrade ?? ""} /></label>}
+            <label>英文正確率目標（%）<input name="targetEnglishAccuracy" type="number" min={0} max={100} step={0.1} defaultValue={goal.targetEnglishAccuracy ?? ""} /></label>
+            <label>目標日期<input name="targetDate" type="date" defaultValue={goal.targetDate ?? ""} /></label>
             <button type="submit" className="score-primary-button">儲存目標</button>
           </form>
         )}

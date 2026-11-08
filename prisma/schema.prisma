@@ -107,6 +107,8 @@ model EnglishRecord {
   practiceDate     DateTime
   practiceName     String
   totalScore        Float?
+  questionsAttempted Int?
+  questionsCorrect   Int?
   vocabularyScore   Float?
   clozeScore        Float?
   contextScore      Float?
@@ -117,6 +119,7 @@ model EnglishRecord {
   notes             String   @default("")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  questions         EnglishQuestion[]
 
   @@index([userEmail])
 }
@@ -133,6 +136,8 @@ model Goal {
   targetMathBGrade      Float?
   targetScienceGrade    Float?
   targetSocialGrade     Float?
+  targetEnglishAccuracy Float?
+  targetDate            DateTime? @db.Date
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
@@ -177,4 +182,77 @@ model UserProfile {
   email     String   @unique
   track     String
   updatedAt DateTime @updatedAt
+}
+
+model StudySession {
+  id        String   @id @default(cuid())
+  userEmail String
+  studyDate DateTime @db.Date
+  minutes   Int
+  subject   String   @default("other")
+  note      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userEmail, studyDate])
+}
+
+model EnglishQuestion {
+  id                String        @id @default(cuid())
+  userEmail         String
+  englishRecordId   String?
+  questionIdentifier String      @default("")
+  questionContent   String        @default("")
+  userAnswer        String        @default("")
+  correctAnswer     String        @default("")
+  errorCategory     String        @default("other")
+  correctionNotes   String        @default("")
+  reviewStatus      String        @default("not_reviewed")
+  lastReviewedAt    DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  englishRecord     EnglishRecord? @relation(fields: [englishRecordId], references: [id], onDelete: SetNull)
+  reviewHistory     EnglishQuestionReview[]
+
+  @@index([userEmail, reviewStatus])
+  @@index([userEmail, errorCategory])
+}
+
+model EnglishQuestionReview {
+  id                String          @id @default(cuid())
+  englishQuestionId String
+  reviewedAt        DateTime        @default(now())
+  note              String          @default("")
+  question          EnglishQuestion @relation(fields: [englishQuestionId], references: [id], onDelete: Cascade)
+
+  @@index([englishQuestionId, reviewedAt])
+}
+
+model Weakness {
+  id               String   @id @default(cuid())
+  userEmail        String
+  title            String
+  subject          String   @default("other")
+  topic            String   @default("")
+  discoveredAt     DateTime @db.Date
+  errorDescription String   @default("")
+  status           String   @default("not_reviewed")
+  reviewNotes      String   @default("")
+  lastReviewedAt   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  reviewHistory    WeaknessReview[]
+
+  @@index([userEmail, status])
+  @@index([userEmail, discoveredAt])
+}
+
+model WeaknessReview {
+  id         String   @id @default(cuid())
+  weaknessId String
+  reviewedAt DateTime @default(now())
+  note       String   @default("")
+  weakness   Weakness @relation(fields: [weaknessId], references: [id], onDelete: Cascade)
+
+  @@index([weaknessId, reviewedAt])
 }

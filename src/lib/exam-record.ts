@@ -32,7 +32,36 @@ function recordValues(record: Record<string, number | null | undefined>) {
 }
 
 export function validateExamRecordData(body: Record<string, unknown>): string | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return "Invalid record.";
+  if (typeof body.examName !== "string" || !body.examName.trim() || body.examName.trim().length > 150) {
+    return "考試名稱為必填，且不可超過 150 個字元。";
+  }
+  if (
+    typeof body.examDate !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(body.examDate) ||
+    !Number.isFinite(Date.parse(`${body.examDate}T00:00:00.000Z`)) ||
+    new Date(`${body.examDate}T00:00:00.000Z`).toISOString().slice(0, 10) !== body.examDate
+  ) {
+    return "Invalid exam date.";
+  }
+  if (body.notes !== undefined && (typeof body.notes !== "string" || body.notes.length > 2000)) {
+    return "備註不可超過 2000 個字元。";
+  }
+  if (
+    body.reviewTags !== undefined &&
+    (!Array.isArray(body.reviewTags) || body.reviewTags.length > 50 ||
+      body.reviewTags.some((tag) => typeof tag !== "string" || tag.length > 100))
+  ) {
+    return "檢討標籤格式錯誤。";
+  }
   const values = recordValues(body as Record<string, number | null | undefined>);
+  for (const subject of SUBJECTS) {
+    for (const { key, maxScore } of subject.components) {
+      if (maxScore !== undefined && values[key] !== null && values[key] > maxScore) {
+        return `${subject.label}的${key}分數不可超過 ${maxScore} 分。`;
+      }
+    }
+  }
   if ([...COMPONENT_KEYS, ...SCIENCE_DETAIL_SCORES.map(({ key }) => key)].some((key) => values[key] !== null && values[key] < 0)) {
     return "分數不可小於 0。";
   }

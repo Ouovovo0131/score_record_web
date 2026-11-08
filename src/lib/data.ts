@@ -245,6 +245,23 @@ export const ENGLISH_CATEGORIES: {
   { key: "translationScore", label: "翻譯", maxScore: 8, maxScoreByType: { haohao: 24 } },
 ];
 
+export type EnglishRecordInput = {
+  practiceType: EnglishPracticeType;
+  practiceDate: string;
+  practiceName?: string;
+  totalScore?: number | null;
+  questionsAttempted?: number | null;
+  questionsCorrect?: number | null;
+  vocabularyScore?: number | null;
+  clozeScore?: number | null;
+  contextScore?: number | null;
+  structureScore?: number | null;
+  readingScore?: number | null;
+  mixedScore?: number | null;
+  translationScore?: number | null;
+  notes?: string;
+};
+
 export function getEnglishCategoryMaxScore(categoryKey: string, practiceType: string): number {
   const category = ENGLISH_CATEGORIES.find((item) => item.key === categoryKey);
   return category?.maxScoreByType?.[practiceType as EnglishPracticeType] ?? category?.maxScore ?? 0;
@@ -254,11 +271,36 @@ export function validateEnglishRecordInput(body: Record<string, unknown>): strin
   if (!body || typeof body !== "object" || Array.isArray(body)) return "Invalid record.";
   const practiceType = ENGLISH_PRACTICE_TYPES.find((type) => type.key === body.practiceType);
   if (!practiceType) return "Invalid practice type.";
-  if (typeof body.practiceDate !== "string" || !Number.isFinite(Date.parse(body.practiceDate))) {
+  if (
+    typeof body.practiceDate !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(body.practiceDate) ||
+    !Number.isFinite(Date.parse(`${body.practiceDate}T00:00:00.000Z`)) ||
+    new Date(`${body.practiceDate}T00:00:00.000Z`).toISOString().slice(0, 10) !== body.practiceDate
+  ) {
     return "Invalid practice date.";
   }
   if (body.practiceName !== undefined && typeof body.practiceName !== "string") {
     return "Invalid practice name.";
+  }
+  if (typeof body.practiceName === "string" && body.practiceName.length > 150) return "Practice name is too long.";
+  if (body.notes !== undefined && (typeof body.notes !== "string" || body.notes.length > 2000)) return "Invalid notes.";
+
+  const attempted = body.questionsAttempted;
+  const correct = body.questionsCorrect;
+  const hasAttempted = attempted !== undefined && attempted !== null;
+  const hasCorrect = correct !== undefined && correct !== null;
+  if (hasAttempted !== hasCorrect) return "Attempted and correct question counts must be supplied together.";
+  if (hasAttempted && hasCorrect) {
+    if (
+      !Number.isInteger(attempted) ||
+      !Number.isInteger(correct) ||
+      (attempted as number) < 1 ||
+      (attempted as number) > 10000 ||
+      (correct as number) < 0 ||
+      (correct as number) > (attempted as number)
+    ) {
+      return "Invalid question counts.";
+    }
   }
 
   for (const category of ENGLISH_CATEGORIES) {

@@ -35,14 +35,10 @@ export async function verifyIdToken(request: Request): Promise<string | null> {
 export async function isAllowedEmail(email: string): Promise<boolean> {
   try {
     if ((await prisma.allowedUser.count()) === 0) {
-      // First run: seed the table with the original single allowed account.
-      if (OWNER_EMAIL && email === OWNER_EMAIL) {
-        await prisma.allowedUser.upsert({ where: { email }, update: {}, create: { email, addedBy: "bootstrap" } });
-        return true;
-      }
-      return false;
+      return Boolean(OWNER_EMAIL) && email === OWNER_EMAIL;
     }
-    return (await prisma.allowedUser.findUnique({ where: { email } })) !== null;
+    return (Boolean(OWNER_EMAIL) && email === OWNER_EMAIL) ||
+      (await prisma.allowedUser.findUnique({ where: { email } })) !== null;
   } catch {
     // Table missing / DB error: fall back to the original env allowlist.
     return Boolean(OWNER_EMAIL) && email === OWNER_EMAIL;

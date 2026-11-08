@@ -14,6 +14,8 @@ export interface ExamRecordDTO {
   mathGrade: number | null;
   mathBScore: number | null;
   mathBGrade: number | null;
+  socialScore: number | null;
+  socialGrade: number | null;
   mathBChoiceScore: number | null;
   mathBMixedScore: number | null;
   scienceScore: number | null;
@@ -26,6 +28,9 @@ export interface ExamRecordDTO {
   englishEssayScore: number | null;
   mathChoiceScore: number | null;
   mathMixedScore: number | null;
+  socialHistoryScore: number | null;
+  socialGeographyScore: number | null;
+  socialCivicsScore: number | null;
   scienceChoiceScore: number | null;
   scienceMixedScore: number | null;
   physicsScore: number | null;
@@ -57,6 +62,11 @@ export interface ExamRecordDTO {
   scienceAverageGrade: number | null;
   scienceBackGrade: number | null;
   scienceBottomGrade: number | null;
+  socialTopGrade: number | null;
+  socialFrontGrade: number | null;
+  socialAverageGrade: number | null;
+  socialBackGrade: number | null;
+  socialBottomGrade: number | null;
   classRank: number | null;
   classTotal: number | null;
   schoolRank: number | null;
@@ -73,6 +83,8 @@ export interface EnglishRecordDTO {
   practiceDate: string;
   practiceName: string;
   totalScore: number | null;
+  questionsAttempted: number | null;
+  questionsCorrect: number | null;
   vocabularyScore: number | null;
   clozeScore: number | null;
   contextScore: number | null;
@@ -92,4 +104,45 @@ export interface GoalDTO {
   targetMathBGrade: number | null;
   targetScienceGrade: number | null;
   targetSocialGrade: number | null;
+  targetEnglishAccuracy: number | null;
+  targetDate: string | null;
+}
+
+export interface StudySessionDTO {
+  id: string;
+  studyDate: string;
+  minutes: number;
+  subject: string;
+  note: string;
+}
+
+export type QuestionReviewStatus = "not_reviewed" | "reviewing" | "reviewed";
+
+export interface EnglishQuestionDTO {
+  id: string;
+  englishRecordId: string | null;
+  questionIdentifier: string;
+  questionContent: string;
+  userAnswer: string;
+  correctAnswer: string;
+  errorCategory: string;
+  correctionNotes: string;
+  reviewStatus: QuestionReviewStatus;
+  lastReviewedAt: string | null;
+  reviewHistory: { id: string; reviewedAt: string; note: string }[];
+}
+
+export type WeaknessStatus = "not_reviewed" | "reviewing" | "improving" | "resolved";
+
+export interface WeaknessDTO {
+  id: string;
+  title: string;
+  subject: string;
+  topic: string;
+  discoveredAt: string;
+  errorDescription: string;
+  status: WeaknessStatus;
+  reviewNotes: string;
+  lastReviewedAt: string | null;
+  reviewHistory: { id: string; reviewedAt: string; note: string }[];
 }

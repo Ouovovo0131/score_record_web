@@ -505,6 +505,66 @@ a {
   font-size: 0.88rem;
 }
 
+.score-trend-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.score-trend-controls button {
+  min-height: 36px;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: #fff;
+  padding: 0.35rem 0.65rem;
+  color: var(--color-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.score-trend-controls button[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: #eef0fa;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.score-stability {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 1rem;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  background: #fff;
+}
+
+.score-stability > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem 1rem;
+}
+
+.score-stability > div + div {
+  border-left: 1px solid var(--color-line);
+}
+
+.score-stability span,
+.score-stability strong {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.score-stability strong {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 .score-metric-tabs {
   display: flex;
   max-width: 100%;
@@ -760,10 +820,19 @@ a {
 
 .english-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-top: 1px solid var(--color-line);
   border-bottom: 1px solid var(--color-line);
   background: #fff;
+}
+
+.english-goal-note {
+  border-left: 3px solid var(--color-primary);
+  margin: 0.9rem 0 0;
+  background: #f0f1f8;
+  padding: 0.7rem 0.9rem;
+  color: var(--color-ink);
+  font-size: 0.86rem;
 }
 
 .english-trend {
@@ -988,6 +1057,463 @@ a {
   z-index: 1;
 }
 
+.dashboard-overview {
+  margin-top: 1rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 1.5rem;
+}
+
+.dashboard-overview-heading,
+.weakness-list-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-overview-heading h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.dashboard-overview-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.dashboard-overview-links a,
+.settings-section a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dashboard-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.dashboard-overview-card,
+.dashboard-weekly-report,
+.settings-section,
+.weakness-form-section,
+.weakness-list-section,
+.study-session-section {
+  border: 1px solid var(--color-line);
+  background: #fff;
+  padding: 1.15rem;
+}
+
+.dashboard-overview-card > span,
+.dashboard-overview-card > small {
+  display: block;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.dashboard-overview-card > strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: clamp(1.3rem, 2.3vw, 1.8rem);
+}
+
+.dashboard-overview-card > small {
+  margin-top: 0.35rem;
+}
+
+.dashboard-subject-list {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 0.6rem;
+}
+
+.dashboard-subject-list > span {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.dashboard-subject-list b {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+}
+
+.dashboard-weekly-report {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin-top: 1rem;
+}
+
+.dashboard-weekly-report h3,
+.dashboard-weekly-report p {
+  margin: 0;
+}
+
+.dashboard-weekly-report h3 {
+  font-size: 1rem;
+}
+
+.dashboard-weekly-report > div p,
+.dashboard-weekly-report > small {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+
+.dashboard-weekly-report > small {
+  grid-column: 1 / -1;
+}
+
+.dashboard-recent-activity {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.dashboard-inline-error {
+  border: 1px solid #f3c2c2;
+  margin: 0.75rem 0;
+  background: #fff2f2;
+  padding: 0.6rem 0.8rem;
+  color: #8a2020;
+  font-size: 0.85rem;
+}
+
+.english-question-section,
+.study-session-section,
+.settings-section,
+.weakness-list-section {
+  margin-top: 2rem;
+}
+
+.english-question-section h2,
+.study-session-section h2,
+.settings-section h2,
+.weakness-form-section h2,
+.weakness-list-heading h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1.2rem;
+}
+
+.english-question-section .english-section-heading > div:first-child > p,
+.settings-section > p {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+}
+
+.english-question-filters {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.english-question-filters label,
+.weakness-list-heading label {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.english-question-form,
+.weakness-form,
+.study-session-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+  border: 1px solid var(--color-line);
+  background: #fff;
+  padding: 1rem;
+}
+
+.english-question-form label,
+.weakness-form label,
+.study-session-form label {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.english-question-form input,
+.english-question-form select,
+.english-question-form textarea,
+.weakness-form input,
+.weakness-form select,
+.weakness-form textarea,
+.study-session-form input,
+.study-session-form select,
+.english-review-form input {
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+  background: #fff;
+  padding: 0.45rem 0.6rem;
+  color: var(--color-ink);
+}
+
+.english-question-form textarea,
+.weakness-form textarea {
+  resize: vertical;
+}
+
+.english-question-form-wide,
+.weakness-form-wide {
+  grid-column: span 2;
+}
+
+.english-question-form button,
+.weakness-form button,
+.study-session-form button,
+.english-review-form button,
+.settings-export-list button {
+  width: fit-content;
+  min-height: 40px;
+  border: 1px solid var(--color-primary);
+  border-radius: 5px;
+  background: var(--color-primary);
+  padding: 0.45rem 0.8rem;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.english-question-form button:disabled,
+.weakness-form button:disabled,
+.study-session-form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.english-question-list,
+.weakness-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.english-question-card,
+.weakness-card {
+  border: 1px solid var(--color-line);
+  background: #fff;
+  padding: 1rem;
+}
+
+.english-question-card p,
+.weakness-card > p {
+  margin: 0.55rem 0;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+}
+
+.english-question-card-heading,
+.weakness-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.english-question-card-heading > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.english-question-card-heading span {
+  border: 1px solid var(--color-line);
+  padding: 0.15rem 0.45rem;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.english-question-card select,
+.weakness-card-heading select,
+.english-question-filters select,
+.weakness-list-heading select {
+  min-height: 38px;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+  background: #fff;
+  padding: 0.35rem 0.55rem;
+}
+
+.english-review-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.english-review-form input {
+  flex: 1 1 220px;
+}
+
+.english-review-form .weakness-delete-button,
+.study-session-list .weakness-delete-button {
+  border-color: var(--color-line);
+  background: #fff;
+  color: var(--color-muted);
+}
+
+.english-review-history {
+  margin-top: 0.65rem;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.english-review-history summary {
+  cursor: pointer;
+}
+
+.english-review-history ul {
+  margin-block: 0.4rem;
+}
+
+.weakness-form-section,
+.weakness-list-section,
+.study-session-section,
+.settings-section {
+  border-color: var(--color-line);
+}
+
+.weakness-card-heading > div p {
+  margin: 0.25rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.weakness-delete-button {
+  min-height: 38px;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+  background: #fff;
+  padding: 0.35rem 0.65rem;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.study-week-total {
+  color: var(--color-primary);
+}
+
+.study-subject-breakdown {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.study-subject-breakdown > div > span,
+.study-subject-breakdown > div > b {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.study-subject-breakdown > div > b {
+  float: right;
+  color: var(--color-ink);
+}
+
+.study-subject-breakdown > div > div {
+  height: 6px;
+  margin-top: 0.35rem;
+  background: #e9ebf0;
+}
+
+.study-subject-breakdown > div > div > span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+}
+
+.study-weekly-history {
+  display: grid;
+  height: 150px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+  border-bottom: 1px solid var(--color-line);
+  padding: 0 0.25rem;
+}
+
+.study-weekly-history > div {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+.study-weekly-history > div > span {
+  width: min(100%, 38px);
+  min-height: 0;
+  background: var(--color-primary);
+}
+
+.study-weekly-history small {
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.study-session-list {
+  display: grid;
+  gap: 0;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.study-session-list li {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto minmax(100px, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  border-top: 1px solid var(--color-line);
+  padding: 0.65rem 0;
+  font-size: 0.84rem;
+}
+
+.study-session-list small {
+  color: var(--color-muted);
+}
+
+.settings-export-list {
+  margin-top: 1rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.settings-export-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  padding: 0.65rem 0;
+}
+
 @media (max-width: 760px) {
   .dashboard-nav-inner {
     width: calc(100% - 32px);
@@ -1035,6 +1561,60 @@ a {
 
   .dashboard-user {
     display: none;
+  }
+
+  .dashboard-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-overview-heading,
+  .weakness-list-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-weekly-report {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-weekly-report > small {
+    grid-column: auto;
+  }
+
+  .score-stability {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .score-stability > div:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .score-stability > div:nth-child(4) {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .english-question-form,
+  .weakness-form,
+  .study-session-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .study-session-note {
+    grid-column: 1 / -1;
+  }
+
+  .study-session-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .study-session-list small {
+    grid-column: 1;
+  }
+
+  .study-session-list button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
   }
 
   .mobile-page {
@@ -1215,6 +1795,51 @@ a {
 
   .score-goal-form {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .english-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .english-summary .score-summary-item:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .english-summary .score-summary-item:nth-child(4) {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .english-question-form,
+  .weakness-form,
+  .study-session-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .english-question-form-wide,
+  .weakness-form-wide,
+  .study-session-note {
+    grid-column: auto;
+  }
+
+  .english-question-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .english-question-filters label {
+    flex: 1 1 140px;
+  }
+
+  .english-question-card-heading,
+  .weakness-card-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .score-trend-controls {
+    max-width: 100%;
+    overflow-x: auto;
   }
 
   .mobile-table th,

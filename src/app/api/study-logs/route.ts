@@ -3,12 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
-
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-function toDbDate(date: string): Date {
-  return new Date(`${date}T00:00:00.000Z`);
-}
+import { dateFromKey, isDateKey, readJsonObject } from "@/lib/learning-validation";
 
 export async function GET(request: NextRequest) {
   const userEmail = await requireDataUser(request);
@@ -24,22 +19,23 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   const date = String(body.date ?? "");
-  if (!DATE_PATTERN.test(date) || Number.isNaN(toDbDate(date).getTime())) {
+  if (!isDateKey(date)) {
     return NextResponse.json({ error: "Invalid date" }, { status: 400 });
   }
 
   if (body.studied === false) {
-    await prisma.studyLog.deleteMany({ where: { userEmail, studyDate: toDbDate(date) } });
+    await prisma.studyLog.deleteMany({ where: { userEmail, studyDate: dateFromKey(date) } });
     return NextResponse.json({ date, studied: false });
   }
 
   const note = typeof body.note === "string" ? body.note.slice(0, 200) : undefined;
   const log = await prisma.studyLog.upsert({
-    where: { userEmail_studyDate: { userEmail, studyDate: toDbDate(date) } },
+    where: { userEmail_studyDate: { userEmail, studyDate: dateFromKey(date) } },
     update: note === undefined ? {} : { note },
-    create: { userEmail, studyDate: toDbDate(date), note: note ?? "" },
+    create: { userEmail, studyDate: dateFromKey(date), note: note ?? "" },
   });
   return NextResponse.json({ date, studied: true, note: log.note });
 }

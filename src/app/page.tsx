@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { authFetch } from "@/lib/auth-fetch";
 import { FIXED_SCHEDULES, SUBJECTS, type FixedSchedule } from "@/lib/data";
+import DashboardOverview from "@/components/DashboardOverview";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const DAY_MS = 86400000;
@@ -132,15 +133,15 @@ export default function CountdownPage() {
   return (
     <div className="mobile-page">
       <div className="mobile-page-header mb-6 border-b-4 border-ink bg-white py-5">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">Exam Schedule Countdown</p>
-        <h1 className="text-4xl font-extrabold sm:text-5xl">考程倒數</h1>
-        <p className="mt-2 max-w-2xl text-muted">自動對最近一場尚未結束的考試倒數，並可用月曆檢視整體考程。</p>
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">Learning Dashboard</p>
+        <h1 className="text-4xl font-extrabold sm:text-5xl">學習總覽</h1>
+        <p className="mt-2 max-w-2xl text-muted">考程倒數、近期成績與讀書活動一覽。</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
         <HeroCountdown schedule={primary} state={primaryState} now={now} className="md:col-span-8" />
 
-        <section className="mobile-panel border border-line bg-white p-5 md:col-span-4">
+        <section className="mobile-panel countdown-schedule-overview border border-line bg-white p-5 md:col-span-4">
           <h2 className="text-xl font-bold">考程總覽</h2>
           <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
             {[
@@ -167,6 +168,10 @@ export default function CountdownPage() {
             })}
           </ul>
         </section>
+
+        <div className="md:col-span-12">
+          <DashboardOverview />
+        </div>
 
         <section className="mobile-panel border border-line bg-white p-5 md:col-span-12">
           <div className="flex flex-wrap items-center justify-between gap-3">

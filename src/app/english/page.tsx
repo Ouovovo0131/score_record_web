@@ -5,6 +5,8 @@ import RequireAuth from "@/components/RequireAuth";
 import { authFetch } from "@/lib/auth-fetch";
 import { useAuth } from "@/context/AuthContext";
 import { TrendChart } from "@/components/TrendChart";
+import EnglishQuestionTracker from "@/components/EnglishQuestionTracker";
+import { questionAccuracy } from "@/lib/analytics";
 import {
   formatScore,
   ENGLISH_CATEGORIES,
@@ -14,7 +16,7 @@ import {
   getEnglishCategoryMaxScore,
 } from "@/lib/data";
 import type { EnglishPracticeType } from "@/lib/data";
-import type { EnglishRecordDTO } from "@/lib/types";
+import type { EnglishRecordDTO, GoalDTO } from "@/lib/types";
 
 function formatMaybeNumber(value: number | null | undefined): string {
   return Number.isFinite(value) ? formatScore(value as number) : "—";
@@ -51,19 +53,25 @@ function SummaryMetric({
 function EnglishPageContent() {
   const { user } = useAuth();
   const [records, setRecords] = useState<EnglishRecordDTO[]>([]);
+  const [goal, setGoal] = useState<GoalDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [practiceTypeInput, setPracticeTypeInput] = useState<string>("miaomiao");
-  const [trendWindow, setTrendWindow] = useState<"all" | "30d" | "7d">("all");
+  const [trendWindow, setTrendWindow] = useState<"all" | "5" | "10" | "30d" | "7d">("all");
   const [trendType, setTrendType] = useState<"all" | EnglishPracticeType>("all");
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [editingPracticeTypes, setEditingPracticeTypes] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    authFetch(user, "/api/english-records")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
-      .then(setRecords)
+    Promise.all([
+      authFetch(user, "/api/english-records").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
+      authFetch(user, "/api/goals").then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed")))),
+    ])
+      .then(([recordData, goalData]) => {
+        setRecords(recordData);
+        setGoal(goalData);
+      })
       .catch(() => setStatus({ text: "讀取英文資料失敗，請稍後再試。", type: "error" }))
       .finally(() => setLoading(false));
   }, [user]);
@@ -89,14 +97,20 @@ function EnglishPageContent() {
       ? (items.reduce((sum, record) => sum + (record.totalScore as number), 0) / possible) * 100
       : null;
   };
+  const accuracyRate = (items: EnglishRecordDTO[]) => {
+    return questionAccuracy(items).rate;
+  };
   const overallRate = scoreRate(validTotalRecords);
   const recentStart = shiftDate(todayKey, -29);
   const previousStart = shiftDate(todayKey, -59);
-  const recentRecords = validTotalRecords.filter((record) => record.practiceDate >= recentStart && record.practiceDate <= todayKey);
-  const previousRecords = validTotalRecords.filter((record) => record.practiceDate >= previousStart && record.practiceDate < recentStart);
-  const recentRate = scoreRate(recentRecords);
-  const previousRate = scoreRate(previousRecords);
-  const recentRateChange = recentRate !== null && previousRate !== null ? recentRate - previousRate : null;
+  const recentAccuracyRecords = records.filter((record) => record.practiceDate >= recentStart && record.practiceDate <= todayKey);
+  const previousAccuracyRecords = records.filter((record) => record.practiceDate >= previousStart && record.practiceDate < recentStart);
+  const overallAccuracy = accuracyRate(records);
+  const recentAccuracy = accuracyRate(recentAccuracyRecords);
+  const previousAccuracy = accuracyRate(previousAccuracyRecords);
+  const accuracyChange = recentAccuracy !== null && previousAccuracy !== null ? recentAccuracy - previousAccuracy : null;
+  const latestScoredRecord = records.slice().reverse().find((record) => Number.isFinite(record.totalScore));
+  const latestAccuracyRecord = records.slice().reverse().find((record) => (record.questionsAttempted ?? 0) > 0);
 
   const categoryStats = ENGLISH_CATEGORIES.map((category) => {
     const entries = records.filter((record) =>
@@ -118,11 +132,14 @@ function EnglishPageContent() {
     .sort((a, b) => (a.rate as number) - (b.rate as number))[0] ?? null;
 
   const cutoffDate = trendWindow === "7d" ? shiftDate(todayKey, -6) : trendWindow === "30d" ? recentStart : null;
-  const filteredRecords = validTotalRecords.filter(
+  const dateFilteredRecords = validTotalRecords.filter(
     (record) =>
       (!cutoffDate || record.practiceDate >= cutoffDate) &&
       (trendType === "all" || record.practiceType === trendType)
   );
+  const filteredRecords = trendWindow === "5" || trendWindow === "10"
+    ? dateFilteredRecords.slice(-Number(trendWindow))
+    : dateFilteredRecords;
   const dailyTrend = [...new Set(filteredRecords.map((record) => record.practiceDate))]
     .sort()
     .map((date) => {
@@ -153,6 +170,8 @@ function EnglishPageContent() {
       mixedScore: toNum("mixedScore"),
       translationScore: toNum("translationScore"),
       totalScore: toNum("totalScore"),
+      questionsAttempted: toNum("questionsAttempted"),
+      questionsCorrect: toNum("questionsCorrect"),
       notes: String(formData.get("notes") || "").trim(),
     };
 
@@ -211,6 +230,8 @@ function EnglishPageContent() {
       mixedScore: toNum("mixedScore"),
       translationScore: toNum("translationScore"),
       notes: String(formData.get("notes") || "").trim(),
+      questionsAttempted: toNum("questionsAttempted"),
+      questionsCorrect: toNum("questionsCorrect"),
     };
     (ENGLISH_UNAVAILABLE_CATEGORY_MAP[practiceType] || []).forEach((key) => {
       (record as Record<string, unknown>)[key] = null;
@@ -264,19 +285,29 @@ function EnglishPageContent() {
       )}
 
       <section className="english-summary" aria-label="英文練習摘要">
-        <SummaryMetric label="練習次數" value={String(records.length)} detail="已儲存的練習紀錄，不代表作答題數" />
-        <SummaryMetric label="累積得分率" value={overallRate === null ? "—" : `${formatScore(overallRate)}%`} detail={`依 ${validTotalRecords.length} 筆有總分紀錄計算`} />
+        <SummaryMetric label="練習次數" value={String(records.length)} detail="已儲存的練習紀錄" />
+        <SummaryMetric label="累積得分率" value={overallRate === null ? "—" : `${formatScore(overallRate)}%`} detail={`依 ${validTotalRecords.length} 筆有總分紀錄計算；不等於正確率`} />
         <SummaryMetric
-          label="近 30 天"
-          value={String(recentRecords.length)}
-          detail={
-            recentRate === null
-              ? "此期間尚無有效總分紀錄"
-              : `得分率 ${formatScore(recentRate)}%${recentRateChange === null ? "" : ` · 較前 30 天 ${recentRateChange > 0 ? "+" : ""}${formatScore(recentRateChange)} 個百分點`}`
-          }
-          tone={recentRateChange === null || recentRateChange === 0 ? "neutral" : recentRateChange > 0 ? "positive" : "negative"}
+          label="最近一次練習"
+          value={latestScoredRecord?.totalScore == null ? "—" : `${formatScore(latestScoredRecord.totalScore)} 分`}
+          detail={latestScoredRecord ? `${latestScoredRecord.practiceName} · ${latestScoredRecord.practiceDate}` : "尚無有效總分"}
+        />
+        <SummaryMetric
+          label="已記錄題目正確率"
+          value={overallAccuracy === null ? "—" : `${formatScore(overallAccuracy)}%`}
+          detail={accuracyChange === null ? `${latestAccuracyRecord ? `最近一次 ${latestAccuracyRecord.questionsCorrect}/${latestAccuracyRecord.questionsAttempted} 題` : "輸入作答題數與答對題數後計算"}` : `近 30 天較前 30 天 ${accuracyChange > 0 ? "+" : ""}${formatScore(accuracyChange)} 個百分點`}
+          tone={accuracyChange === null || accuracyChange === 0 ? "neutral" : accuracyChange > 0 ? "positive" : "negative"}
         />
       </section>
+      {goal?.targetEnglishAccuracy !== null && goal?.targetEnglishAccuracy !== undefined && (
+        <p className="english-goal-note">
+          英文正確率目標 {formatScore(goal.targetEnglishAccuracy)}% ·
+          {overallAccuracy === null ? "尚無可比較的作答題數資料" : overallAccuracy >= goal.targetEnglishAccuracy
+            ? `已達標（目前 ${formatScore(overallAccuracy)}%）`
+            : `還差 ${formatScore(goal.targetEnglishAccuracy - overallAccuracy)} 個百分點（目前 ${formatScore(overallAccuracy)}%）`}
+          {goal.targetDate ? ` · 目標日期 ${goal.targetDate}` : ""}
+        </p>
+      )}
 
       <section className="english-trend" aria-labelledby="english-trend-heading">
         <div className="english-trend-heading">
@@ -295,6 +326,8 @@ function EnglishPageContent() {
             <div className="english-period-tabs" role="group" aria-label="趨勢時間範圍">
               {([
                 { value: "all", label: "全部紀錄" },
+                { value: "10", label: "最近 10 次" },
+                { value: "5", label: "最近 5 次" },
                 { value: "30d", label: "近 30 天" },
                 { value: "7d", label: "近 7 天" },
               ] as const).map((option) => (
@@ -365,6 +398,8 @@ function EnglishPageContent() {
         </ul>
       </section>
 
+      <EnglishQuestionTracker records={records} onSaved={refresh} />
+
       <section className="english-review-note">
         <h2>錯題複習</h2>
         <p>
@@ -380,7 +415,7 @@ function EnglishPageContent() {
           <table className="mobile-table w-full border-collapse">
             <thead>
               <tr>
-                {["日期", "練習類型", "練習名稱", "總分", "得分率", ...ENGLISH_CATEGORIES.map((category) => category.label), "備註", "操作"].map((h) => (
+                {["日期", "練習類型", "練習名稱", "總分", "得分率", ...ENGLISH_CATEGORIES.map((category) => category.label), "作答 / 答對", "備註", "操作"].map((h) => (
                   <th key={h} className="border-b border-line bg-[#f9fafb] px-3 py-3.5 text-left font-bold text-muted">
                     {h}
                   </th>
@@ -390,7 +425,7 @@ function EnglishPageContent() {
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={ENGLISH_CATEGORIES.length + 7} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={ENGLISH_CATEGORIES.length + 9} className="px-3 py-6 text-center text-muted">
                     目前還沒有任何英文練習紀錄。
                   </td>
                 </tr>
@@ -422,6 +457,14 @@ function EnglishPageContent() {
                               : formatMaybeNumber(record[category.key as keyof EnglishRecordDTO] as number | null)}
                         </td>
                       ))}
+                      <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
+                        {editing ? (
+                          <div className="flex flex-col gap-1">
+                            <input form={formId} name="questionsAttempted" type="number" min={1} max={10000} step={1} defaultValue={record.questionsAttempted ?? ""} placeholder="作答題數" className="w-24 border border-line px-2 py-1" aria-label="作答題數" />
+                            <input form={formId} name="questionsCorrect" type="number" min={0} max={record.questionsAttempted ?? 10000} step={1} defaultValue={record.questionsCorrect ?? ""} placeholder="答對題數" className="w-24 border border-line px-2 py-1" aria-label="答對題數" />
+                          </div>
+                        ) : record.questionsAttempted == null ? "—" : `${record.questionsAttempted} / ${record.questionsCorrect}`}
+                      </td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">{editing ? <textarea form={formId} name="notes" defaultValue={record.notes} className="w-40 border border-line px-2 py-1" /> : record.notes || "—"}</td>
                       <td className="border-b border-[#edf2fa] px-3 py-3.5 align-top">
                         {editing ? (
@@ -511,6 +554,17 @@ function EnglishPageContent() {
                 總分（最高 {ENGLISH_PRACTICE_TYPES.find((type) => type.key === practiceTypeInput)?.maxScore} 分，可不填，系統會自動加總）
                 <input name="totalScore" type="number" min={0} max={ENGLISH_PRACTICE_TYPES.find((type) => type.key === practiceTypeInput)?.maxScore} step={0.1} className="border border-line px-3 py-2.5" />
               </label>
+
+              <fieldset className="mt-4 grid grid-cols-2 gap-3 border border-line p-3">
+                <legend className="px-1 font-bold text-ink">正確率（選填）</legend>
+                <label className="flex flex-col gap-1 text-sm text-muted">作答題數
+                  <input name="questionsAttempted" type="number" min={1} max={10000} step={1} className="border border-line px-2.5 py-2" />
+                </label>
+                <label className="flex flex-col gap-1 text-sm text-muted">答對題數
+                  <input name="questionsCorrect" type="number" min={0} max={10000} step={1} className="border border-line px-2.5 py-2" />
+                </label>
+                <p className="col-span-2 text-xs text-muted">需要同時輸入兩個數字；未填資料不會估算正確率。</p>
+              </fieldset>
 
               <label className="mt-4 flex flex-col gap-2 text-muted">
                 備註

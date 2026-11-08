@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireDataUser } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
-import { validateEnglishRecordInput } from "@/lib/data";
+import { validateEnglishRecordInput, type EnglishRecordInput } from "@/lib/data";
+import { readJsonObject } from "@/lib/learning-validation";
 
 function serialize(record: {
   id: string;
@@ -9,6 +10,8 @@ function serialize(record: {
   practiceDate: Date;
   practiceName: string;
   totalScore: number | null;
+  questionsAttempted: number | null;
+  questionsCorrect: number | null;
   vocabularyScore: number | null;
   clozeScore: number | null;
   contextScore: number | null;
@@ -28,25 +31,29 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const userEmail = await requireDataUser(request);
   if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   const validationError = validateEnglishRecordInput(body);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+  const input = body as EnglishRecordInput;
 
   const result = await prisma.englishRecord.updateMany({
     where: { id, userEmail },
     data: {
-      practiceType: body.practiceType,
-      practiceDate: new Date(body.practiceDate),
-      practiceName: body.practiceName,
-      totalScore: body.totalScore ?? null,
-      vocabularyScore: body.vocabularyScore ?? null,
-      clozeScore: body.clozeScore ?? null,
-      contextScore: body.contextScore ?? null,
-      structureScore: body.structureScore ?? null,
-      readingScore: body.readingScore ?? null,
-      mixedScore: body.mixedScore ?? null,
-      translationScore: body.translationScore ?? null,
-      notes: body.notes ?? "",
+      practiceType: input.practiceType,
+      practiceDate: new Date(input.practiceDate),
+      practiceName: input.practiceName ?? "",
+      totalScore: input.totalScore ?? null,
+      questionsAttempted: input.questionsAttempted ?? null,
+      questionsCorrect: input.questionsCorrect ?? null,
+      vocabularyScore: input.vocabularyScore ?? null,
+      clozeScore: input.clozeScore ?? null,
+      contextScore: input.contextScore ?? null,
+      structureScore: input.structureScore ?? null,
+      readingScore: input.readingScore ?? null,
+      mixedScore: input.mixedScore ?? null,
+      translationScore: input.translationScore ?? null,
+      notes: input.notes ?? "",
     },
   });
 

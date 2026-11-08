@@ -1,16 +1,19 @@
 # 考程與成績追蹤 (Score Record Web)
 
-個人用的考程倒數、模擬考成績統計、英文練習分析儀表板。以 Next.js 15 (App Router) 重寫，取代原本的靜態 HTML/JS 版本（保留於 `legacy-static-site/` 供參考，不再維護）。
+以 Next.js App Router 建立的學習追蹤工具，包含公開考程倒數，以及登入後的成績、英文練習、讀書時數與弱點管理。舊版靜態 HTML/JS 保留於 `legacy-static-site/` 作參考，不再維護。
 
 ## 架構
 
-- **前端**：Next.js (App Router) + React + TypeScript + Tailwind CSS，沿用舊站的線框風格（白底、深色實線邊框、無圓角、等寬數字字型 JetBrains Mono）。
-- **驗證**：Firebase Authentication（Google 登入），僅允許單一白名單 Email 登入（`NEXT_PUBLIC_ALLOWED_EMAIL`）。以 React Context (`AuthProvider` / `useAuth`) 管理登入狀態，`<RequireAuth>` 元件保護 `/score`、`/english` 頁面。
+- **前端**：Next.js 16 App Router + React + TypeScript + Tailwind CSS。
+- **驗證**：Firebase Authentication（Google 登入）；資料 API 會在伺服器端驗證 Firebase ID token，並依 `AllowedUser` 與 `NEXT_PUBLIC_ALLOWED_EMAIL` 授權。
 - **資料庫**：Vercel Postgres（Neon），透過 Prisma ORM 存取。
 - **頁面**：
-  - `/`（首頁）：考程倒數，**公開頁面，不需登入**。
-  - `/score`：模擬考成績統計，需登入。
-  - `/english`：英文練習統計，需登入。
+  - `/`（總覽）：公開考程倒數；登入後顯示個人成績與近七日摘要。
+  - `/score`：模擬考統計、趨勢、穩定度與學習目標，需登入。
+  - `/english`：英文練習分析、作答正確率與錯題複習，需登入。
+  - `/study`：每日讀書標記與可計時數的讀書時段，需登入。
+  - `/weakness`：弱點與複習歷程，需登入。
+  - `/settings`：JSON/CSV 個人資料匯出，需登入。
   - `/login`：Google 登入頁。
 
 ## 環境變數
@@ -25,7 +28,7 @@
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | 同上 |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | 同上 |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | 同上 |
-| `NEXT_PUBLIC_ALLOWED_EMAIL` | 唯一允許登入的 Google 帳號 Email |
+| `NEXT_PUBLIC_ALLOWED_EMAIL` | 初始資料擁有者 Email；其他帳號必須先列入 `AllowedUser` |
 | `POSTGRES_URL` | Vercel Postgres（或 Neon）連線字串 |
 
 ## 本機開發
@@ -33,7 +36,7 @@
 ```bash
 npm install
 # 設定好 .env.local 後：
-npx prisma db push      # 依 prisma/schema.prisma 建立資料表
+npx prisma db push      # 新資料庫初始化；既有資料庫請套用新增 migration
 npx prisma db seed       # 匯入舊站的預設模擬考／英文練習／目標資料
 npm run dev
 ```
@@ -45,22 +48,28 @@ npm run dev
 以 Prisma 定義於 `prisma/schema.prisma`：
 
 - `ExamRecord`：模擬考成績紀錄（國文、英文、數學、自然的分項成績與級分、五標、班排/校排/總排、檢討標籤、備註）；總級分由四科級分加總。
-<<<<<<< HEAD
-- `EnglishRecord`：英文練習紀錄（妙妙卷／歷屆試題／克漏字，七個題型分數；妙妙卷與歷屆試題滿分 80 分且翻譯題滿分 8 分，克漏字不適用詞彙/閱讀/混合/翻譯題）。
-=======
-- `EnglishRecord`：英文練習紀錄（妙妙卷／克漏字／好好學；好好學不適用詞彙題，綜合測驗、閱讀測驗、翻譯滿分分別為 5、8、24 分；克漏字不適用詞彙/閱讀/混合/翻譯題）。
->>>>>>> 00909cc5d3ecd392f940179074ef078eb5f9690a
+- `EnglishRecord`：英文練習紀錄（妙妙卷／歷屆試題／克漏字／好好學，含七種題型分數、總分及選填的作答／答對題數）。
 - `Goal`：單一使用者的目標設定（每個 Email 僅一筆）。
+- `StudyLog` / `StudySession`：每日讀書標記與明確記錄的讀書分鐘數。舊標記不會推算時數。
+- `EnglishQuestion` / `EnglishQuestionReview`：逐題錯誤資料與複習歷程。
+- `Weakness` / `WeaknessReview`：弱點狀態、描述與複習歷程。
+- `AllowedUser` / `UserProfile`：使用者授權與組別設定。
 
 ## API Routes
 
-位於 `src/app/api/`：
+位於 `src/app/api/`。所有個人資料 API 都驗證 Firebase ID token 並依登入者限制資料範圍，包含成績、英文紀錄／錯題、目標、讀書紀錄／時段、弱點、週報與匯出。登入檢查不會自動授權新 Google 帳號；新增使用者需先登記在 `AllowedUser`。
 
-- `GET/POST /api/exam-records`、`PUT/DELETE /api/exam-records/[id]`
-- `GET/POST /api/english-records`、`PUT/DELETE /api/english-records/[id]`
-- `GET/PUT /api/goals`
+新增資料庫欄位與資料表的增量 migration 位於 `prisma/migrations/`。已有資料庫請先備份，再執行 `npx prisma migrate deploy`；全新本機資料庫可用 `npx prisma db push` 建立目前完整 Schema。此專案尚無既有 migration baseline，因此不要在尚未確認正式資料庫狀態前執行遷移。
 
-> ⚠️ **已知限制**：這些 API 路由目前沒有伺服器端的 Firebase Admin token 驗證，僅靠前端 `RequireAuth` 做畫面層的登入檢查。任何人若得知 API 網址即可讀寫資料。由於這是單人使用的個人工具，這是刻意接受的取捨；若之後要多人使用或公開，請在這些路由加上 Firebase Admin ID token 驗證。
+英文正確率只使用有填寫作答題數及答對題數的紀錄；舊資料缺少題數時不會推估。報表中的讀書時數也只採用新增的時段資料，既有每日標記不會換算成時數。
+
+## 驗證
+
+```bash
+npm run lint
+npm test
+npm run build
+```
 
 ## 部署到 Vercel
 
@@ -76,7 +85,7 @@ npm run dev
    - `NEXT_PUBLIC_ALLOWED_EMAIL`
    - `POSTGRES_URL`（若使用 Vercel Postgres 整合會自動設定）
 4. `package.json` 已包含 `"postinstall": "prisma generate"`，Vercel build 時會自動產生 Prisma Client。
-5. 部署完成後，於本機或透過 Vercel CLI 執行一次 `npx prisma db push` 及 `npx prisma db seed`（指向正式資料庫的 `POSTGRES_URL`）以建立資料表並匯入預設資料。
+5. 確認資料庫備份及 Schema 狀態後，對既有資料庫執行 `npx prisma migrate deploy`；全新資料庫則先 `npx prisma db push`。只有需要範例資料時才執行 `npx prisma db seed`。
 6. 到 Firebase Console > Authentication > Settings > Authorized domains，把 Vercel 部署網域加入白名單，Google 登入才能運作。
 
 ## 尚待手動完成的步驟
@@ -84,7 +93,7 @@ npm run dev
 - 到 Firebase Console 建立/確認 `record-my-study` 專案，取得 Web 應用程式設定值填入 `.env.local` 與 Vercel 環境變數。
 - 將 `NEXT_PUBLIC_ALLOWED_EMAIL` 改成你自己的真實 Gmail 帳號。
 - 到 Vercel Dashboard 新增 Postgres 整合並取得 `POSTGRES_URL`。
-- 執行 `npx prisma db push` 與 `npx prisma db seed` 初始化正式環境資料庫。
+- 確認既有資料庫 Schema 與 migration 狀態，再選擇增量 migration 或全新資料庫初始化方式。
 
 ## 舊版靜態站
 

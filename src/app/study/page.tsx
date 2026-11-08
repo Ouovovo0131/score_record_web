@@ -5,6 +5,7 @@ import RequireAuth from "@/components/RequireAuth";
 import { useAuth } from "@/context/AuthContext";
 import { authFetch } from "@/lib/auth-fetch";
 import { FIXED_SCHEDULES } from "@/lib/data";
+import StudySessionTracker from "@/components/StudySessionTracker";
 
 interface StudyLogDTO {
   date: string;
@@ -252,6 +253,7 @@ function StudyPageContent() {
           </div>
         )}
       </section>
+      <StudySessionTracker />
     </div>
   );
 }
