@@ -76,7 +76,7 @@ interface StudyTask {
   done: boolean;
 }
 
-const SUBJECT_COLORS: Record<string, string> = { chinese: "#747fa2", english: "#657e91", math: "#5b62a8", mathB: "#718c94", science: "#7b7896", social: "#8c806f" };
+const SUBJECT_COLORS: Record<string, string> = { chinese: "#747fa2", english: "#657e91", math: "var(--color-primary)", mathB: "#718c94", science: "#7b7896", social: "#8c806f" };
 
 const TASK_SUBJECTS = [
   ...SUBJECTS.map((s) => ({ key: s.key as string, label: s.label, color: SUBJECT_COLORS[s.key] })),

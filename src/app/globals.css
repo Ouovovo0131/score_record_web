@@ -1,17 +1,21 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f9;
-  --foreground: #252a35;
-  --color-ink: #252a35;
-  --color-muted: #707887;
-  --color-primary: #5b62a8;
+  --background: #fafafd;
+  --foreground: #383a45;
+  --color-ink: #303340;
+  --color-muted: #747987;
+  --color-primary: #7186b8;
+  --color-primary-soft: #edf1fa;
+  --color-chart-secondary: #929bb3;
   --color-success: #39785c;
   --color-danger: #b64b4b;
-  --color-line: #e3e6ec;
-  --surface-muted: #f7f8fa;
-  --radius-card: 12px;
+  --color-line: #d6d8e0;
+  --color-outline: #b5b8c4;
+  --color-chart-grid: #e5e6ec;
+  --surface-muted: #f5f6fa;
+  --radius-card: 8px;
 }
 
 @theme inline {
@@ -20,11 +24,12 @@
   --color-ink: var(--color-ink);
   --color-muted: var(--color-muted);
   --color-primary: var(--color-primary);
+  --color-outline: var(--color-outline);
   --color-success: var(--color-success);
   --color-danger: var(--color-danger);
   --color-line: var(--color-line);
   --font-sans: "Noto Sans TC", "Microsoft JhengHei", "Segoe UI", sans-serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 * {
@@ -66,7 +71,7 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid #858bd0;
+  outline: 3px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -75,6 +80,20 @@ a {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   letter-spacing: -0.045em;
+}
+
+.mobile-page h1,
+.mobile-login-card h1 {
+  color: var(--color-ink);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+.mobile-page h2,
+.mobile-login-card h2 {
+  color: var(--color-ink);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .mobile-page {
@@ -118,11 +137,10 @@ a {
 }
 
 .mobile-page .mobile-panel {
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-outline);
   border-radius: var(--radius-card);
   background-color: #fff;
   padding: 1.5rem;
-  box-shadow: 0 1px 2px rgb(22 30 50 / 3%);
 }
 
 .mobile-page .mobile-panel h2 {
@@ -140,8 +158,8 @@ a {
 .mobile-stat-card,
 .mobile-summary-card {
   min-width: 0;
-  border-color: var(--color-line);
-  border-radius: 10px;
+  border-color: var(--color-outline);
+  border-radius: var(--radius-card);
   background: #fff;
   padding: 1.125rem;
 }
@@ -149,6 +167,7 @@ a {
 .mobile-stat-card strong,
 .mobile-summary-card > strong {
   color: var(--color-ink);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -157,13 +176,13 @@ a {
 }
 
 .mobile-two-col > article {
-  border-color: var(--color-line);
-  border-radius: 10px;
+  border-color: var(--color-outline);
+  border-radius: var(--radius-card);
 }
 
 .mobile-page button:not([aria-label^="刪除"]),
 .mobile-login-page button {
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
@@ -177,14 +196,14 @@ a {
 .mobile-page textarea {
   min-width: 0;
   border-color: var(--color-line);
-  border-radius: 7px;
+  border-radius: 5px;
   background-color: #fff;
   color: var(--color-ink);
 }
 
 .mobile-page input::placeholder,
 .mobile-page textarea::placeholder {
-  color: #9299a6;
+  color: #858996;
 }
 
 .mobile-page input[type="checkbox"] {
@@ -218,8 +237,8 @@ a {
 
 .mobile-chart {
   overflow-x: auto;
-  border-color: var(--color-line);
-  border-radius: 10px;
+  border-color: var(--color-outline);
+  border-radius: var(--radius-card);
   background: #fff;
 }
 
@@ -242,13 +261,13 @@ a {
 
 .countdown-hero .countdown-badge {
   border-radius: 6px;
-  background: #eef0fa;
+  background: var(--color-primary-soft);
   color: var(--color-primary);
 }
 
 .countdown-hero .mobile-countdown-unit {
   border: 1px solid var(--color-line);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--surface-muted);
 }
 
@@ -273,9 +292,8 @@ a {
 }
 
 .mobile-login-card {
-  border-color: var(--color-line);
+  border-color: var(--color-outline);
   border-radius: var(--radius-card);
-  box-shadow: 0 8px 30px rgb(22 30 50 / 5%);
 }
 
 .dashboard-nav {
@@ -325,8 +343,8 @@ a {
   width: 36px;
   height: 36px;
   place-items: center;
-  border-radius: 9px;
-  background: #eef0fa;
+  border-radius: 5px;
+  background: var(--color-primary-soft);
   color: var(--color-primary);
   font-size: 1rem;
   font-weight: 700;
@@ -344,7 +362,7 @@ a {
   display: inline-flex;
   min-height: 42px;
   align-items: center;
-  border-radius: 7px;
+  border-radius: 6px;
   padding: 0.5rem 0.8rem;
   color: var(--color-muted);
   font-size: 0.9rem;
@@ -359,7 +377,7 @@ a {
 }
 
 .dashboard-nav-link.is-active {
-  background: #eef0fa;
+  background: var(--color-primary-soft);
   color: var(--color-primary);
 }
 
@@ -373,8 +391,8 @@ a {
 .dashboard-track,
 .dashboard-account-action {
   min-height: 38px;
-  border: 1px solid var(--color-line);
-  border-radius: 7px;
+  border: 1px solid var(--color-outline);
+  border-radius: 6px;
   background: #fff;
   padding: 0.4rem 0.7rem;
   color: var(--color-ink);
@@ -389,7 +407,7 @@ a {
 }
 
 .dashboard-account-action:hover {
-  border-color: #c7cbd6;
+  border-color: var(--color-outline);
   background: var(--surface-muted);
 }
 
@@ -404,7 +422,7 @@ a {
 }
 
 .dashboard-account-action.is-primary:hover {
-  background: #4d5496;
+  background: #5f739f;
 }
 
 .dashboard-user {
@@ -447,6 +465,7 @@ a {
   display: block;
   margin-top: 0.1rem;
   color: var(--color-ink);
+  font-family: var(--font-mono);
   font-size: clamp(1.25rem, 2.6vw, 1.8rem);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -520,8 +539,8 @@ a {
 
 .score-trend-controls button {
   min-height: 36px;
-  border: 1px solid var(--color-line);
-  border-radius: 6px;
+  border: 1px solid var(--color-outline);
+  border-radius: 5px;
   background: #fff;
   padding: 0.35rem 0.65rem;
   color: var(--color-muted);
@@ -530,8 +549,8 @@ a {
 }
 
 .score-trend-controls button[aria-pressed="true"] {
-  border-color: var(--color-primary);
-  background: #eef0fa;
+  border-color: var(--color-outline);
+  background: var(--color-primary-soft);
   color: var(--color-primary);
   font-weight: 700;
 }
@@ -598,7 +617,7 @@ a {
 }
 
 .score-metric-tabs button[aria-pressed="true"] {
-  background: #eef0fa;
+  background: var(--color-primary-soft);
   color: var(--color-primary);
 }
 
@@ -782,7 +801,7 @@ a {
 .score-goal-form input {
   min-height: 42px;
   border: 1px solid var(--color-line);
-  border-radius: 7px;
+  border-radius: 5px;
   background: #fff;
   padding: 0.5rem 0.7rem;
   color: var(--color-ink);
@@ -793,7 +812,7 @@ a {
   min-height: 40px;
   width: fit-content;
   border: 1px solid var(--color-line);
-  border-radius: 7px;
+  border-radius: 5px;
   background: #fff;
   padding: 0.45rem 0.85rem;
   color: var(--color-primary);
@@ -810,7 +829,7 @@ a {
 }
 
 .score-primary-button:hover {
-  background: #4d5496;
+  background: #5f739f;
 }
 
 .score-secondary-button:hover {
@@ -833,7 +852,7 @@ a {
 .english-goal-note {
   border-left: 3px solid var(--color-primary);
   margin: 0.9rem 0 0;
-  background: #f0f1f8;
+  background: var(--color-primary-soft);
   padding: 0.7rem 0.9rem;
   color: var(--color-ink);
   font-size: 0.86rem;
@@ -881,15 +900,15 @@ a {
   display: flex;
   flex: 0 0 auto;
   gap: 0.25rem;
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
+  border: 1px solid var(--color-outline);
+  border-radius: 6px;
   padding: 0.2rem;
 }
 
 .english-period-tabs button {
   min-height: 36px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   padding: 0.4rem 0.7rem;
   color: var(--color-muted);
@@ -905,7 +924,7 @@ a {
 }
 
 .english-period-tabs button[aria-pressed="true"] {
-  background: #eef0fa;
+  background: var(--color-primary-soft);
   color: var(--color-primary);
 }
 
@@ -926,8 +945,8 @@ a {
 
 .english-trend-controls select {
   min-height: 40px;
-  border: 1px solid var(--color-line);
-  border-radius: 7px;
+  border: 1px solid var(--color-outline);
+  border-radius: 5px;
   background: #fff;
   padding: 0.4rem 0.65rem;
   color: var(--color-ink);
@@ -949,7 +968,7 @@ a {
   min-height: 240px;
   place-items: center;
   border: 1px solid var(--color-line);
-  border-radius: 9px;
+  border-radius: 6px;
   margin-top: 0.75rem;
   padding: 1.5rem;
   color: var(--color-muted);
@@ -964,7 +983,7 @@ a {
 .english-focus-note {
   margin: 0.85rem 0;
   border-left: 3px solid var(--color-primary);
-  background: #f0f1f8;
+  background: var(--color-primary-soft);
   padding: 0.65rem 0.85rem;
   color: var(--color-muted);
   font-size: 0.88rem;
@@ -1113,7 +1132,7 @@ a {
 .weakness-form-section,
 .weakness-list-section,
 .study-session-section {
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-outline);
   background: #fff;
   padding: 1.15rem;
 }
@@ -1552,7 +1571,6 @@ a {
     border-top: 1px solid var(--color-line);
     background: rgb(255 255 255 / 96%);
     padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
-    box-shadow: 0 -4px 16px rgb(22 30 50 / 6%);
     backdrop-filter: blur(12px);
   }
 
@@ -1561,7 +1579,7 @@ a {
     min-width: 0;
     min-height: 48px;
     place-items: center;
-    border-radius: 9px;
+    border-radius: 6px;
     color: var(--color-muted);
     font-size: 0.72rem;
     font-weight: 600;
@@ -1570,7 +1588,7 @@ a {
   }
 
   .mobile-bottom-nav-link.is-active {
-    background: #eef0fa;
+    background: var(--color-primary-soft);
     color: var(--color-primary);
     font-weight: 700;
   }

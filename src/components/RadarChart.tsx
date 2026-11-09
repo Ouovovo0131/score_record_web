@@ -50,7 +50,7 @@ export function RadarChart({
             const pointRadius = (level / 100) * radius;
             return `${centerX + Math.cos(angle) * pointRadius},${centerY + Math.sin(angle) * pointRadius}`;
           }).join(" ");
-          return <polygon key={level} points={points} fill="none" stroke="#dbe6fb" strokeWidth={1} />;
+          return <polygon key={level} points={points} fill="none" stroke="var(--color-chart-grid)" strokeWidth={1} />;
         })}
 
         {SUBJECTS.map((subject, index) => {
@@ -61,8 +61,8 @@ export function RadarChart({
           const labelY = centerY + Math.sin(angle) * (radius + 22);
           return (
             <g key={subject.key}>
-              <line x1={centerX} y1={centerY} x2={axisX} y2={axisY} stroke="#dbe6fb" strokeWidth={1} />
-              <text x={labelX} y={labelY} fill="#4d5972" fontSize={13} fontWeight={700} textAnchor="middle">
+              <line x1={centerX} y1={centerY} x2={axisX} y2={axisY} stroke="var(--color-chart-grid)" strokeWidth={1} />
+              <text x={labelX} y={labelY} fill="var(--color-muted)" fontSize={13} fontWeight={700} textAnchor="middle">
                 {subject.shortLabel}
               </text>
             </g>
@@ -71,14 +71,16 @@ export function RadarChart({
 
         <polygon
           points={buildRadarPolygon(averageValues, centerX, centerY, radius)}
-          fill="rgba(53, 99, 233, 0.16)"
-          stroke="#3563e9"
+          fill="var(--color-chart-secondary)"
+          fillOpacity={0.14}
+          stroke="var(--color-chart-secondary)"
           strokeWidth={2.5}
         />
         <polygon
           points={buildRadarPolygon(latestValues, centerX, centerY, radius)}
-          fill="rgba(32, 161, 107, 0.16)"
-          stroke="#20a16b"
+          fill="var(--color-primary)"
+          fillOpacity={0.14}
+          stroke="var(--color-primary)"
           strokeWidth={2.5}
         />
       </svg>
