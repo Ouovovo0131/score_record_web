@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { authFetch } from "@/lib/auth-fetch";
 import { useAuth } from "@/context/AuthContext";
@@ -57,6 +57,8 @@ function EnglishPageContent() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [savingRecord, setSavingRecord] = useState(false);
+  const savingRecordRef = useRef(false);
   const [practiceTypeInput, setPracticeTypeInput] = useState<string>("miaomiao");
   const [trendWindow, setTrendWindow] = useState<"all" | "5" | "10" | "30d" | "7d">("all");
   const [trendType, setTrendType] = useState<"all" | EnglishPracticeType>("all");
@@ -149,6 +151,7 @@ function EnglishPageContent() {
     });
 
   async function handleAddRecord(formEl: HTMLFormElement) {
+    if (savingRecordRef.current) return;
     const formData = new FormData(formEl);
     const toNum = (key: string) => {
       const v = formData.get(key);
@@ -192,21 +195,33 @@ function EnglishPageContent() {
       return;
     }
 
-    const res = await authFetch(user, "/api/english-records", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(record),
-    });
+    savingRecordRef.current = true;
+    setSavingRecord(true);
+    try {
+      const res = await authFetch(user, "/api/english-records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(record),
+      });
 
-    if (!res.ok) {
-      setStatus({ text: "新增英文練習紀錄失敗，請稍後再試。", type: "error" });
-      return;
+      if (!res.ok) {
+        setStatus({ text: "新增英文練習紀錄失敗，請稍後再試。", type: "error" });
+        return;
+      }
+
+      const createdRecord = await res.json() as EnglishRecordDTO;
+      setRecords((current) => current.some((item) => item.id === createdRecord.id)
+        ? current
+        : [...current, createdRecord].sort((a, b) => a.practiceDate.localeCompare(b.practiceDate)));
+      formEl.reset();
+      setShowModal(false);
+      setStatus({ text: "已新增英文練習紀錄。", type: "success" });
+    } catch {
+      setStatus({ text: "新增英文練習紀錄時發生連線錯誤，請確認紀錄後再試。", type: "error" });
+    } finally {
+      savingRecordRef.current = false;
+      setSavingRecord(false);
     }
-
-    await refresh();
-    formEl.reset();
-    setShowModal(false);
-    setStatus({ text: "已新增英文練習紀錄。", type: "success" });
   }
 
   async function handleSaveRecord(formEl: HTMLFormElement, id: string) {
@@ -500,7 +515,7 @@ function EnglishPageContent() {
               className="mt-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                handleAddRecord(e.currentTarget);
+                void handleAddRecord(e.currentTarget);
               }}
             >
               <div className="mobile-modal-grid grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -572,8 +587,8 @@ function EnglishPageContent() {
               </label>
 
               <div className="mt-4 flex flex-wrap gap-3">
-                <button type="submit" className="border border-ink bg-ink px-4 py-2.5 font-bold text-white">
-                  儲存紀錄
+                <button type="submit" disabled={savingRecord} className="border border-ink bg-ink px-4 py-2.5 font-bold text-white disabled:cursor-wait disabled:opacity-60">
+                  {savingRecord ? "儲存中..." : "儲存紀錄"}
                 </button>
                 <button type="button" onClick={() => setShowModal(false)} className="border border-line bg-white px-4 py-2.5 font-bold text-primary">
                   取消
